@@ -8,18 +8,16 @@ import {
   Film,
   Plus,
   Play,
-  Trash2,
   Sparkles,
   Search,
   Video,
   Clock,
   Layers,
-  Key,
-  Check,
   Cpu,
-  ExternalLink,
+  MessageSquare,
+  Check,
 } from 'lucide-react';
-import { VideoHistoryItem, VideoProject } from '../types/video';
+import { ChatConversation, VideoProject } from '../types/video';
 import {
   getPixazoConfig,
   setPixazoApiKey,
@@ -28,29 +26,31 @@ import {
 } from '../utils/pixazoClient';
 
 interface GrokSidebarProps {
-  history: VideoHistoryItem[];
-  onSelectVideo: (video: VideoProject) => void;
+  conversations: ChatConversation[];
+  activeConversationId: string;
+  onSelectConversation: (id: string) => void;
   onNewChat: () => void;
-  onClearHistory: () => void;
-  onDeleteHistoryItem: (id: string) => void;
   isOpenOnMobile?: boolean;
   onCloseMobile?: () => void;
+  activeChatVideos: VideoProject[];
+  onSelectVideo: (video: VideoProject) => void;
 }
 
 export const GrokSidebar: React.FC<GrokSidebarProps> = ({
-  history,
-  onSelectVideo,
+  conversations,
+  activeConversationId,
+  onSelectConversation,
   onNewChat,
-  onClearHistory,
-  onDeleteHistoryItem,
   isOpenOnMobile = false,
   onCloseMobile,
+  activeChatVideos,
+  onSelectVideo,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'cinematic' | 'reels'>('all');
+  const [activeTab, setActiveTab] = useState<'chats' | 'videos'>('chats');
   const [showApiModal, setShowApiModal] = useState<boolean>(false);
 
-  // Pixazo AI configuration state
+  // Engine configuration state
   const [pixazoKey, setPixazoKeyState] = useState<string>('');
   const [engineModeState, setEngineModeState] = useState<EngineMode>('canvas-director');
   const [keySavedNotification, setKeySavedNotification] = useState<boolean>(false);
@@ -61,22 +61,18 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
     setEngineModeState(config.engineMode);
   }, [showApiModal]);
 
-  const handleSavePixazoKey = () => {
-    setPixazoApiKey(pixazoKey);
-    setEngineMode(engineModeState);
-    setKeySavedNotification(true);
-    setTimeout(() => setKeySavedNotification(false), 2500);
-  };
+  const filteredConversations = conversations.filter((c) => {
+    return (
+      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.messages.some((m) => m.content.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  });
 
-  const filteredHistory = history.filter((item) => {
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.prompt.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (!matchesSearch) return false;
-    if (filterType === 'cinematic') return item.aspectRatio === '16:9';
-    if (filterType === 'reels') return item.aspectRatio === '9:16';
-    return true;
+  const filteredVideos = activeChatVideos.filter((v) => {
+    return (
+      v.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.prompt.toLowerCase().includes(searchQuery.toLowerCase())
+    );
   });
 
   return (
@@ -116,7 +112,7 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
         )}
       </div>
 
-      {/* New Video Session Button */}
+      {/* New Film Project Button (Preserves all existing chats) */}
       <div className="p-3">
         <button
           type="button"
@@ -127,123 +123,154 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
           data-testid="new-video-btn"
           className="w-full py-2.5 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition active:scale-95"
         >
-          <Plus className="w-4 h-4 text-neutral-300" />
+          <Plus className="w-4 h-4 text-amber-400" />
           <span>New Film Project</span>
         </button>
       </div>
 
-      {/* Video History Section */}
-      <div className="flex-1 flex flex-col min-h-0 px-3">
-        {/* Header & Count */}
-        <div className="flex items-center justify-between py-2 text-xs">
-          <div className="flex items-center gap-1.5 font-semibold text-neutral-300">
-            <Film className="w-3.5 h-3.5 text-neutral-400" />
-            <span>Film History</span>
-            <span className="text-[10px] text-neutral-500 font-mono">
-              ({history.length})
-            </span>
-          </div>
+      {/* Navigation Switcher: Conversations vs Reel Videos */}
+      <div className="px-3 mb-2">
+        <div className="grid grid-cols-2 gap-1 p-1 bg-neutral-900/90 rounded-xl border border-neutral-800 text-xs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('chats')}
+            className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
+              activeTab === 'chats'
+                ? 'bg-neutral-800 text-white shadow'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+            <span>Chats ({conversations.length})</span>
+          </button>
 
-          {history.length > 0 && (
-            <button
-              type="button"
-              onClick={onClearHistory}
-              className="text-[10px] text-neutral-500 hover:text-rose-400 transition"
-              title="Clear all video history"
-            >
-              Clear
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setActiveTab('videos')}
+            className={`py-1.5 px-2 rounded-lg font-bold transition flex items-center justify-center gap-1.5 ${
+              activeTab === 'videos'
+                ? 'bg-neutral-800 text-white shadow'
+                : 'text-neutral-400 hover:text-white'
+            }`}
+          >
+            <Film className="w-3.5 h-3.5 text-sky-400" />
+            <span>Reel ({activeChatVideos.length}/100)</span>
+          </button>
         </div>
+      </div>
 
-        {/* Search */}
-        <div className="relative mb-2">
+      {/* Search Input */}
+      <div className="px-3 mb-2">
+        <div className="relative">
           <Search className="w-3.5 h-3.5 text-neutral-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search film reel..."
+            placeholder={activeTab === 'chats' ? 'Search conversations...' : 'Search reel clips...'}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-700"
           />
         </div>
+      </div>
 
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1 mb-2">
-          {(['all', 'cinematic', 'reels'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setFilterType(tab)}
-              className={`px-2 py-0.5 rounded-md capitalize text-[10px] font-semibold transition ${
-                filterType === tab
-                  ? 'bg-neutral-800 text-white border border-neutral-700'
-                  : 'text-neutral-500 hover:text-neutral-300'
-              }`}
-            >
-              {tab === 'all' ? 'All Films' : tab === 'cinematic' ? '16:9 Cinema' : '9:16 Vertical'}
-            </button>
-          ))}
-        </div>
+      {/* Main List Area */}
+      <div className="flex-1 flex flex-col min-h-0 px-3 overflow-y-auto space-y-2 pb-4">
+        {activeTab === 'chats' ? (
+          /* CONVERSATIONS LIST (Never deleted, grab any conversation) */
+          filteredConversations.length === 0 ? (
+            <div className="p-6 text-center text-neutral-500 text-xs flex flex-col items-center">
+              <MessageSquare className="w-8 h-8 text-neutral-700 mb-2" />
+              <span>No conversations match.</span>
+            </div>
+          ) : (
+            filteredConversations.map((c) => {
+              const isActive = c.id === activeConversationId;
+              const videoCount = c.messages.filter((m) => Boolean(m.generatedVideo)).length;
 
-        {/* Video List */}
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1 pb-4">
-          {filteredHistory.length === 0 ? (
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => {
+                    onSelectConversation(c.id);
+                    if (onCloseMobile) onCloseMobile();
+                  }}
+                  className={`group p-2.5 rounded-xl border transition cursor-pointer flex flex-col gap-1.5 ${
+                    isActive
+                      ? 'bg-neutral-900 border-amber-500/60 ring-1 ring-amber-500/20'
+                      : 'bg-neutral-900/60 border-neutral-850 hover:bg-neutral-850 hover:border-neutral-750'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-white text-xs truncate max-w-[170px]">
+                      {c.title}
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-neutral-800 text-amber-400 shrink-0">
+                      {videoCount}/100
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-neutral-400 line-clamp-1">
+                    {c.messages[c.messages.length - 1]?.content || 'Empty session'}
+                  </p>
+
+                  <div className="flex items-center justify-between text-[9px] text-neutral-500 font-mono pt-1 border-t border-neutral-800/40">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5" />
+                      {new Date(c.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span>{c.messages.length} messages</span>
+                  </div>
+                </div>
+              );
+            })
+          )
+        ) : (
+          /* REEL VIDEOS IN ACTIVE CHAT (Up to 100 videos) */
+          filteredVideos.length === 0 ? (
             <div className="p-6 text-center text-neutral-500 text-xs flex flex-col items-center">
               <Video className="w-8 h-8 text-neutral-700 mb-2" />
               <span>No videos generated yet.</span>
               <span className="text-[10px] text-neutral-600 mt-1">
-                Upload images or prompt Grok to create your first video!
+                Type GENERATE in chat to produce up to 100 videos in this session!
               </span>
             </div>
           ) : (
-            filteredHistory.map((item) => (
+            filteredVideos.map((vid, idx) => (
               <div
-                key={item.id}
+                key={vid.id}
                 onClick={() => {
-                  onSelectVideo(item.video);
+                  onSelectVideo(vid);
                   if (onCloseMobile) onCloseMobile();
                 }}
-                className="group p-2.5 rounded-xl bg-neutral-900/80 border border-neutral-800/80 hover:border-amber-500/50 hover:bg-neutral-850 cursor-pointer transition relative flex flex-col gap-1.5"
+                className="group p-2.5 rounded-xl bg-neutral-900/80 border border-neutral-800/80 hover:border-amber-500/50 hover:bg-neutral-850 cursor-pointer transition flex flex-col gap-1.5"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-white text-xs truncate max-w-[150px]">
-                    {item.title}
+                  <span className="font-semibold text-white text-xs truncate max-w-[170px]">
+                    #{idx + 1} {vid.title}
                   </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteHistoryItem(item.id);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-neutral-500 hover:text-rose-400 transition"
-                    title="Delete video"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200 font-bold font-mono">
+                    {vid.aspectRatio}
+                  </span>
                 </div>
 
                 <p className="text-[10px] text-neutral-400 line-clamp-1">
-                  {item.prompt || 'Animated clip'}
+                  {vid.prompt}
                 </p>
 
                 <div className="flex items-center justify-between text-[9px] text-neutral-500 font-mono pt-1 border-t border-neutral-800/50">
                   <span className="flex items-center gap-1">
                     <Clock className="w-2.5 h-2.5" />
-                    {item.duration.toFixed(1)}s
+                    {vid.totalDuration.toFixed(1)}s
                   </span>
-                  <span className="px-1.5 py-0.5 rounded bg-neutral-800 text-neutral-200 font-bold">
-                    {item.aspectRatio}
-                  </span>
-                  <span>{item.video.scenes.length} shots</span>
+                  <span>{vid.scenes.length} shots</span>
                 </div>
               </div>
             ))
-          )}
-        </div>
+          )
+        )}
       </div>
 
-      {/* Real Dual-AI Hand-in-Hand Deck & Footer */}
+      {/* Engine Status & Footer */}
       <div className="p-3 border-t border-neutral-800 bg-neutral-950/90 text-xs">
         <button
           type="button"
@@ -263,13 +290,13 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
         <div className="text-[10px] text-neutral-500 flex items-center justify-between pt-0.5">
           <span className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Director + Video Generation
+            100 Videos / Chat
           </span>
-          <span className="font-mono text-neutral-400">v3.8</span>
+          <span className="font-mono text-neutral-400">MP4 Cinema</span>
         </div>
       </div>
 
-      {/* Dual-AI Hand-in-Hand APIs Modal */}
+      {/* Engine Status Modal */}
       {showApiModal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="w-full max-w-xl bg-neutral-900 border border-neutral-800 rounded-3xl shadow-2xl overflow-hidden p-6 max-h-[90vh] overflow-y-auto">
@@ -282,11 +309,11 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <span>Dual-AI Hand-in-Hand Engine</span>
                     <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                      2 APIs Active
+                      MP4 Export Ready
                     </span>
                   </h3>
                   <p className="text-[11px] text-neutral-400">
-                    How Story Memory & Video Generation work hand-in-hand
+                    Host up to 100 videos in a single chat with MP4 downloads
                   </p>
                 </div>
               </div>
@@ -300,110 +327,16 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
             </div>
 
             <div className="space-y-3 text-xs">
-              {/* Architecture Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {/* API 1: Director & Memory AI */}
-                <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs flex items-center gap-1.5 text-amber-400">
-                      <Cpu className="w-3.5 h-3.5" />
-                      API 1: Brain & Memory
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">
-                      Active
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-neutral-300 font-medium">
-                    Google Gemini 3.8 Flash
-                  </p>
-                  <p className="text-[10px] text-neutral-500">
-                    Screenplay memory & seam harmonizing
-                  </p>
-                </div>
-
-                {/* API 2: Video Generation AI */}
-                <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs flex items-center gap-1.5 text-sky-400">
-                      <Video className="w-3.5 h-3.5" />
-                      API 2: Video Engine
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">
-                      Active
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-neutral-300 font-medium">
-                    Canvas Director / Fal.ai
-                  </p>
-                  <p className="text-[10px] text-neutral-500">
-                    Frame camera paths & zero-watermark export
-                  </p>
-                </div>
-              </div>
-
-              {/* Engine Mode Configuration */}
-              <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-semibold text-neutral-300">
-                    Render Engine:
-                  </label>
-                  <span className="text-[10px] text-emerald-400 font-mono">
-                    Ready
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEngineModeState('canvas-director');
-                      setEngineMode('canvas-director');
-                      setKeySavedNotification(true);
-                      setTimeout(() => setKeySavedNotification(false), 2000);
-                    }}
-                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border transition ${
-                      engineModeState === 'canvas-director'
-                        ? 'bg-amber-400/20 text-amber-300 border-amber-400/50'
-                        : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
-                    }`}
-                  >
-                    Canvas Director
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEngineModeState('pixazo-cloud');
-                      setEngineMode('pixazo-cloud');
-                      setKeySavedNotification(true);
-                      setTimeout(() => setKeySavedNotification(false), 2000);
-                    }}
-                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border transition ${
-                      engineModeState === 'pixazo-cloud'
-                        ? 'bg-sky-400/20 text-sky-300 border-sky-400/50'
-                        : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
-                    }`}
-                  >
-                    Cloud Neural
-                  </button>
-                </div>
-                {keySavedNotification && (
-                  <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Engine saved!
-                  </p>
-                )}
-              </div>
-
-              {/* Hand-in-Hand Collaboration Pipeline Diagram */}
               <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1.5">
                 <span className="font-bold text-neutral-300 text-xs flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Dual-AI Pipeline
+                  Chat & MP4 Architecture
                 </span>
-                <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 font-mono text-[10px] text-neutral-300 space-y-1">
-                  <div className="text-amber-300">1. Chat / Prompt ➔</div>
-                  <div className="text-emerald-300">2. Gemini Brain directs & scripts ➔</div>
-                  <div className="text-sky-300">3. Video Engine generates frames & speech ➔</div>
-                  <div className="text-purple-300">4. Mergen harmonizes splits per conversation</div>
-                </div>
+                <p className="text-neutral-400 text-[11px] leading-relaxed">
+                  • <strong>100 Videos per Chat:</strong> Continue storylines, produce sequels, and build comprehensive reels in a single session.<br />
+                  • <strong>Meaning-Based Chat Naming:</strong> Conversations are automatically titled by the semantic essence of the opening concept.<br />
+                  • <strong>Strictly MP4 Downloads:</strong> All footage exports in pristine .mp4 container format.
+                </p>
               </div>
             </div>
 

@@ -34,6 +34,7 @@ import {
   getSavedPlaybackTime,
   savePlaybackTime,
 } from '../utils/pixazoClient';
+import { exportToMp4 } from '../utils/mp4Export';
 
 interface GrokVideoPlayerProps {
   project: VideoProject;
@@ -55,7 +56,7 @@ export const GrokVideoPlayer: React.FC<GrokVideoPlayerProps> = ({
   const [currentAspect, setCurrentAspect] = useState<AspectRatio>(
     project.aspectRatio || '16:9'
   );
-  const [isRecordingWebM, setIsRecordingWebM] = useState<boolean>(false);
+  const [isExportingMp4, setIsExportingMp4] = useState<boolean>(false);
   const [recordingProgress, setRecordingProgress] = useState<number>(0);
   const [recordingStatus, setRecordingStatus] = useState<string>('');
   const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(
@@ -283,91 +284,34 @@ export const GrokVideoPlayer: React.FC<GrokVideoPlayerProps> = ({
     });
   };
 
-  // Video Extraction Pipeline
+  // Video Extraction Pipeline (Strictly MP4)
   const handleStartExtraction = async () => {
-    setIsRecordingWebM(true);
+    setIsExportingMp4(true);
     setRecordingProgress(5);
-    setRecordingStatus('Setting up canvas stream...');
-
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      setIsRecordingWebM(false);
-      return;
-    }
+    setRecordingStatus('Setting up MP4 video encoder...');
 
     try {
       setIsPlaying(false);
-      const stream = canvas.captureStream(30);
-
-      const mimeTypes = [
-        'video/webm;codecs=vp9',
-        'video/webm;codecs=vp8',
-        'video/webm',
-      ];
-      let selectedMime = '';
-      for (const mime of mimeTypes) {
-        if (MediaRecorder.isTypeSupported(mime)) {
-          selectedMime = mime;
-          break;
-        }
-      }
-
-      const chunks: Blob[] = [];
-      const recorder = new MediaRecorder(stream, {
-        mimeType: selectedMime || undefined,
-        videoBitsPerSecond: 4000000,
+      await exportToMp4({
+        project,
+        aspectRatio: downloadTargetAspect,
+        onProgress: (percent, status) => {
+          setRecordingProgress(percent);
+          setRecordingStatus(status);
+        },
       });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      const recordPromise = new Promise<Blob>((resolve) => {
-        recorder.onstop = () => {
-          resolve(new Blob(chunks, { type: selectedMime || 'video/webm' }));
-        };
-      });
-
-      recorder.start();
-      setRecordingStatus(`Extracting ${project.scenes.length} cinematic shots at 1080p...`);
-
-      const totalSimSeconds = Math.min(totalDuration, 24);
-      let sim = 0;
-      while (sim <= totalSimSeconds) {
-        setCurrentTime(sim);
-        const percent = Math.min(95, Math.round((sim / totalSimSeconds) * 90) + 5);
-        setRecordingProgress(percent);
-        setRecordingStatus(`Rendering frame stream (${percent}%)...`);
-        await new Promise((r) => setTimeout(r, 60));
-        sim += 0.3;
-      }
-
-      recorder.stop();
-      setRecordingProgress(98);
-      setRecordingStatus('Packaging clean MP4/WebM video (no watermark)...');
-
-      const blob = await recordPromise;
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${project.title.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${downloadTargetAspect.replace(':', 'x')}.webm`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
 
       setRecordingProgress(100);
-      setRecordingStatus('Download complete!');
+      setRecordingStatus('MP4 download complete!');
       setTimeout(() => {
-        setIsRecordingWebM(false);
+        setIsExportingMp4(false);
         setShowDownloadModal(false);
         setRecordingProgress(0);
-      }, 2000);
-    } catch (err) {
-      console.error('Video extraction error:', err);
-      setRecordingStatus('Extraction error. Please try again.');
-      setIsRecordingWebM(false);
+      }, 1500);
+    } catch (err: any) {
+      console.error('MP4 extraction error:', err);
+      setRecordingStatus(err.message || 'Extraction error. Please try again.');
+      setIsExportingMp4(false);
     }
   };
 
@@ -561,27 +505,27 @@ export const GrokVideoPlayer: React.FC<GrokVideoPlayerProps> = ({
             </button>
           )}
 
-          {/* Download Extraction Button */}
+          {/* Download Extraction Button (MP4 Only) */}
           <button
             type="button"
             onClick={() => setShowDownloadModal(true)}
             className="py-1.5 px-3 rounded-xl bg-white hover:bg-neutral-200 text-neutral-950 font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-md"
-            title="Extract video file with selected aspect ratio and zero watermark"
+            title="Download video strictly as MP4"
           >
             <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Download</span>
+            <span>Download MP4</span>
           </button>
         </div>
       </div>
 
-      {/* Download Extraction Modal (With Ratio Selection) */}
+      {/* Download Extraction Modal (Strictly MP4) */}
       {showDownloadModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-neutral-950 border border-neutral-800 rounded-3xl p-5 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Download className="w-4 h-4 text-amber-400" />
-                <h4 className="font-bold text-sm text-white">Extract & Download</h4>
+                <h4 className="font-bold text-sm text-white">Download MP4</h4>
               </div>
               <button
                 type="button"
@@ -593,7 +537,7 @@ export const GrokVideoPlayer: React.FC<GrokVideoPlayerProps> = ({
             </div>
 
             <p className="text-xs text-neutral-400">
-              Select your target aspect ratio for this movie. Zero watermarks, crisp subtitles, and full audio.
+              Select framing ratio for your movie. Strictly exports in pristine MP4 format with audio, effects, and subtitles.
             </p>
 
             {/* Ratio Selector Buttons */}
@@ -645,19 +589,19 @@ export const GrokVideoPlayer: React.FC<GrokVideoPlayerProps> = ({
             <div className="pt-2">
               <button
                 type="button"
-                disabled={isRecordingWebM}
+                disabled={isExportingMp4}
                 onClick={handleStartExtraction}
-                className="w-full py-2.5 rounded-xl bg-white hover:bg-neutral-200 text-neutral-950 font-extrabold text-xs flex items-center justify-center gap-2 transition active:scale-95"
+                className="w-full py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-neutral-950 font-extrabold text-xs flex items-center justify-center gap-2 transition active:scale-95 shadow"
               >
-                {isRecordingWebM ? (
+                {isExportingMp4 ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Extracting ({recordingProgress}%)...</span>
+                    <span>Extracting MP4 ({recordingProgress}%)...</span>
                   </>
                 ) : (
                   <>
                     <Download className="w-4 h-4 stroke-[2.5]" />
-                    <span>Extract & Save to Device</span>
+                    <span>Save MP4 to Device</span>
                   </>
                 )}
               </button>

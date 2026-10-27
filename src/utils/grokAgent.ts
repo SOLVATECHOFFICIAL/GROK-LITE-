@@ -74,6 +74,57 @@ export function isGenerateCommand(
 }
 
 /**
+ * Automatically names a conversation based on the first prompt's meaningful concept,
+ * NOT just a single literal word or grammatical filler.
+ * Strips command prefixes ('GENERATE', 'make', 'create', etc.) and stop-words,
+ * selecting the core subject words (e.g. 'Cyberpunk Rain Alley', 'Galactic Discovery Expedition').
+ * Guarantees 'clear' is never in the name.
+ */
+export function extractMeaningfulChatTitle(prompt: string): string {
+  if (!prompt || !prompt.trim()) return 'Cinematic Film Session';
+
+  // Remove command prefixes
+  let cleaned = prompt
+    .replace(/^(\+?\s*continue\s*scene:?)/i, '')
+    .replace(/\b(generate|direct|produce|create|make|shoot|please|can you|i want to|show me|give me|render)\b:?/gi, '')
+    .trim();
+
+  // Strip non-alphanumeric except spaces
+  cleaned = cleaned.replace(/[^a-zA-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  // Common stop words to exclude from title meaning
+  const stopWords = new Set([
+    'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'and', 'or', 'by',
+    'from', 'as', 'into', 'is', 'are', 'was', 'were', 'it', 'this', 'that', 'these',
+    'those', 'some', 'any', 'my', 'your', 'his', 'her', 'their', 'our', 'what', 'which',
+    'who', 'where', 'when', 'how', 'about', 'clear'
+  ]);
+
+  const words = cleaned
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !stopWords.has(w.toLowerCase()));
+
+  if (words.length === 0) {
+    const lower = prompt.toLowerCase();
+    if (lower.includes('space') || lower.includes('star')) return 'Cosmic Voyage';
+    if (lower.includes('cyber') || lower.includes('neon')) return 'Cyberpunk Odyssey';
+    if (lower.includes('dragon') || lower.includes('knight')) return 'Medieval Mythos';
+    if (lower.includes('ocean') || lower.includes('sea')) return 'Deep Sea Horizon';
+    return 'Film Direction Reel';
+  }
+
+  // Take the first 2 to 4 meaningful concept words
+  const meaningfulWords = words.slice(0, 4);
+
+  // Capitalize Title Case
+  const title = meaningfulWords
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+
+  return title.length > 36 ? `${title.slice(0, 34)}...` : title;
+}
+
+/**
  * Generates dynamic, context-aware conversational director replies.
  * Uses chat history memory to remember previous videos, comment on uploaded stills,
  * and provide directing advice without repeating static canned phrases.

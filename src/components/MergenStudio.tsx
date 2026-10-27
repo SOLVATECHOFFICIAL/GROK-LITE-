@@ -42,6 +42,7 @@ import {
 } from '../utils/videoRenderEngine';
 import { videoAudio } from '../utils/videoAudio';
 import { characterVoiceEngine } from '../utils/characterVoice';
+import { exportToMp4 } from '../utils/mp4Export';
 
 interface MergenStudioProps {
   availableVideos: VideoProject[];
@@ -431,93 +432,32 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
   ]);
 
   const handleExtractAndDownload = async () => {
-    if (isExtracting || compositeScenes.length === 0) return;
+    if (isExtracting || orderedVideos.length === 0) return;
 
     setIsExtracting(true);
     setExtractProgress(10);
-    setExtractStatus('Preparing recorder...');
-
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      setIsExtracting(false);
-      return;
-    }
+    setExtractStatus('Preparing MP4 video encoder...');
 
     try {
       setIsPlaying(false);
-
-      const stream = canvas.captureStream(30);
-      let mediaRecorder: MediaRecorder;
-
-      const mimeTypes = [
-        'video/webm;codecs=vp9',
-        'video/webm;codecs=vp8',
-        'video/webm',
-      ];
-      let selectedMime = '';
-      for (const mime of mimeTypes) {
-        if (MediaRecorder.isTypeSupported(mime)) {
-          selectedMime = mime;
-          break;
-        }
-      }
-
-      const chunks: Blob[] = [];
-      mediaRecorder = new MediaRecorder(stream, {
-        mimeType: selectedMime || undefined,
-        videoBitsPerSecond: 4500000,
+      await exportToMp4({
+        projects: orderedVideos,
+        aspectRatio: targetAspect,
+        onProgress: (percent, status) => {
+          setExtractProgress(percent);
+          setExtractStatus(status);
+        },
       });
-
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunks.push(e.data);
-      };
-
-      const recordPromise = new Promise<Blob>((resolve) => {
-        mediaRecorder.onstop = () => {
-          resolve(new Blob(chunks, { type: selectedMime || 'video/webm' }));
-        };
-      });
-
-      mediaRecorder.start();
-      setExtractStatus(`Rendering ${orderedVideos.length} clips...`);
-
-      const totalSimSeconds = Math.min(totalDuration, 30);
-      const stepInterval = 0.25;
-      let simTime = 0;
-
-      while (simTime <= totalSimSeconds) {
-        setCurrentTime(simTime);
-        const percent = Math.min(95, Math.round((simTime / totalSimSeconds) * 90) + 5);
-        setExtractProgress(percent);
-        setExtractStatus(`Exporting (${percent}%)...`);
-        await new Promise((r) => setTimeout(r, 45));
-        simTime += stepInterval;
-      }
-
-      mediaRecorder.stop();
-      setExtractProgress(98);
-      setExtractStatus('Packaging file...');
-
-      const blob = await recordPromise;
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `merged_film_${orderedVideos.length}_clips.webm`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
 
       setExtractProgress(100);
-      setExtractStatus('Downloaded!');
+      setExtractStatus('MP4 downloaded successfully!');
       setTimeout(() => {
         setIsExtracting(false);
         setExtractProgress(0);
-      }, 2000);
-    } catch (err) {
+      }, 1500);
+    } catch (err: any) {
       console.error('Extraction error:', err);
-      setExtractStatus('Failed. Try again.');
+      setExtractStatus(err.message || 'MP4 export failed. Please try again.');
       setIsExtracting(false);
     }
   };
@@ -955,37 +895,7 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
                 className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-neutral-950 font-bold text-xs flex items-center justify-center gap-2 shadow"
               >
                 <Download className="w-4 h-4" />
-                <span>{isExtracting ? 'Rendering...' : 'Download Movie (.webm)'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const manifest = {
-                    title: `Merged Movie (${orderedVideos.length} clips)`,
-                    aspectRatio: targetAspect,
-                    totalDuration,
-                    clips: orderedVideos.map((v, i) => ({
-                      index: i + 1,
-                      title: v.title,
-                      duration: v.totalDuration,
-                    })),
-                    splits: computedSplits,
-                  };
-                  const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'merged_manifest.json';
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                }}
-                className="w-full py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-[11px] text-neutral-300 flex items-center justify-center gap-1.5"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Download Cutlist (.json)</span>
+                <span>{isExtracting ? 'Rendering...' : 'Download Merged Movie (.mp4)'}</span>
               </button>
             </div>
           </div>

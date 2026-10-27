@@ -131,3 +131,11 @@ export interface VideoHistoryItem {
   video: VideoProject;
   partNumber?: number;
 }
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+}
