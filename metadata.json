@@ -1,6 +1,6 @@
 {
-  "name": "Tale Trove Animation Studio",
-  "description": "AI-powered 2D animation and storycrafting studio with multi-layer keyframe timeline, puppet rigging, procedural audio, and instant theater playback.",
+  "name": "Grok Cinema - AI Film Production",
+  "description": "AI film production and animation studio. Direct cinematic shots, orchestrate camera motion, upload reference stills, and generate real downloadable movies.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
