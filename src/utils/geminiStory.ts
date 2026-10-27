@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI } from '@google/genai';
 import {
   AnimationProject,
   BackgroundTheme,
@@ -26,61 +25,21 @@ export interface StoryPromptOptions {
 export async function generateStoryWithGemini(
   options: StoryPromptOptions
 ): Promise<AnimationProject> {
-  const apiKey =
-    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) ||
-    import.meta.env?.VITE_GEMINI_API_KEY ||
-    '';
+  try {
+    const res = await fetch('/api/story/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
 
-  const systemPrompt = `You are the lead storyteller and animation director for Tale Trove Animation Studio.
-Generate an animated 3-scene story based on the prompt: "${options.prompt}" (Genre: ${options.genre}).
-Respond ONLY with a valid JSON object matching this schema:
-{
-  "title": "Story Title",
-  "description": "Short logline",
-  "scenes": [
-    {
-      "title": "Scene 1: Title",
-      "duration": 5,
-      "background": "twilight-forest" | "celestial-observatory" | "cyberpunk-neon" | "cozy-cottage" | "dragon-peak" | "deep-ocean",
-      "weatherEffect": "none" | "fireflies" | "stardust" | "leaves" | "rain" | "bubbles",
-      "narration": "Narration text for scene voiceover",
-      "bgMusic": "fable" | "adventure" | "lullaby" | "mystery",
-      "characters": [
-        {
-          "name": "Character Name",
-          "type": "fox" | "knight" | "owl" | "robot" | "wizard" | "pixie" | "cat" | "frog",
-          "startX": 20,
-          "endX": 45,
-          "y": 68,
-          "emotion": "happy" | "curious" | "surprised" | "dramatic" | "talking" | "sleepy",
-          "pose": "idle" | "walking" | "jumping" | "casting" | "cheering" | "bowing",
-          "speech": "What the character says in this scene"
-        }
-      ],
-      "props": ["star" | "tree" | "crystal" | "chest" | "campfire" | "potion" | "wand" | "moon" | "cloud" | "flower"]
-    }
-  ]
-}`;
-
-  if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: systemPrompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
-
-      const text = response.text?.trim();
-      if (text) {
-        const parsed = JSON.parse(text);
+    if (res.ok) {
+      const parsed = await res.json();
+      if (parsed?.scenes?.length) {
         return convertRawGeminiToProject(parsed);
       }
-    } catch (err) {
-      console.warn('Gemini generation fallback to local generator:', err);
     }
+  } catch (err) {
+    console.warn('Gemini generation fallback to local generator:', err);
   }
 
   // Resilient fallback generator if network or API key is absent

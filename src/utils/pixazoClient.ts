@@ -5,7 +5,7 @@
 
 import { AspectRatio, MotionType, VideoProject, VideoScene, VisualEffect } from '../types/video';
 
-const DEFAULT_PIXAZO_KEY = '49b9a073feca45da9c566b2ee74df0b2';
+const DEFAULT_PIXAZO_KEY = '';
 const STORAGE_KEY = 'grok_pixazo_api_key';
 const STORAGE_ENGINE_MODE = 'grok_video_engine_mode';
 

@@ -347,35 +347,53 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
                 </div>
               </div>
 
-              {/* API 2 Configuration Key Input */}
+              {/* Engine Mode Configuration */}
               <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-semibold text-neutral-300">
-                    Pixazo AI Video Generation Key:
+                    Video Render Engine:
                   </label>
-                  <span className="text-[10px] text-neutral-500 font-mono">
-                    Default active: 49b9...df0b2
+                  <span className="text-[10px] text-emerald-400 font-mono">
+                    Active
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={pixazoKey}
-                    onChange={(e) => setPixazoKeyState(e.target.value)}
-                    placeholder="Enter Pixazo API Key..."
-                    className="flex-1 bg-neutral-900 border border-neutral-700 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-amber-400"
-                  />
                   <button
                     type="button"
-                    onClick={handleSavePixazoKey}
-                    className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs transition shadow shrink-0"
+                    onClick={() => {
+                      setEngineModeState('canvas-director');
+                      setEngineMode('canvas-director');
+                      setKeySavedNotification(true);
+                      setTimeout(() => setKeySavedNotification(false), 2000);
+                    }}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border transition ${
+                      engineModeState === 'canvas-director'
+                        ? 'bg-amber-400/20 text-amber-300 border-amber-400/50'
+                        : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
+                    }`}
                   >
-                    Save Key
+                    Canvas Director (Local)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEngineModeState('pixazo-cloud');
+                      setEngineMode('pixazo-cloud');
+                      setKeySavedNotification(true);
+                      setTimeout(() => setKeySavedNotification(false), 2000);
+                    }}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border transition ${
+                      engineModeState === 'pixazo-cloud'
+                        ? 'bg-sky-400/20 text-sky-300 border-sky-400/50'
+                        : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
+                    }`}
+                  >
+                    Cloud Neural Pipeline
                   </button>
                 </div>
                 {keySavedNotification && (
                   <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Pixazo API Key saved successfully!
+                    <Check className="w-3.5 h-3.5" /> Engine configuration updated!
                   </p>
                 )}
               </div>
