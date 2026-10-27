@@ -1,0 +1,6 @@
+{
+  "name": "Tale Trove Animation Studio",
+  "description": "AI-powered 2D animation and storycrafting studio with multi-layer keyframe timeline, puppet rigging, procedural audio, and instant theater playback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
