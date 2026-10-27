@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
@@ -468,6 +469,7 @@ app.post('/api/generate-video-clip', async (req, res) => {
 
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
+  const httpServer = http.createServer(app);
 
   if (isProduction) {
     app.use(express.static(path.resolve(__dirname, 'dist')));
@@ -475,14 +477,37 @@ async function startServer() {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
   } else {
+    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: isHmrDisabled ? false : { server: httpServer },
+        watch: isHmrDisabled ? null : {},
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   }
 
-  app.listen(port, host, () => {
+  httpServer.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`Port ${port} in use. Exiting cleanly to allow supervisor restart.`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
+
+  process.on('SIGTERM', () => {
+    httpServer.close(() => process.exit(0));
+  });
+
+  process.on('SIGINT', () => {
+    httpServer.close(() => process.exit(0));
+  });
+
+  httpServer.listen(port, host, () => {
     console.log(`Server running at http://${host}:${port}`);
   });
 }
