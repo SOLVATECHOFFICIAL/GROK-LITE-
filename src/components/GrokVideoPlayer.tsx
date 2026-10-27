@@ -241,11 +241,11 @@ export const GrokVideoPlayer: React.FC<GrokVideoPlayerProps> = ({
       ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
-      // Atmospheric rain/particles over image for cinematic life
-      renderCinematicEnvironment(ctx, width, height, currentTime, charType);
+      // Atmospheric subtle particles over image without covering the image!
+      renderCinematicEnvironment(ctx, width, height, currentTime, charType, activeScene.biome, true);
     } else {
-      // Procedural Hollywood cinematic atmosphere (skyline, sweeping searchlights, rain streaks, volumetric fog)
-      renderCinematicEnvironment(ctx, width, height, currentTime, charType);
+      // Procedural cinematic atmosphere matching the prompt biome
+      renderCinematicEnvironment(ctx, width, height, currentTime, charType, activeScene.biome, false);
 
       // Procedural talking character figure with breathing, blinking, and active speech waveform/mouth movement!
       renderCinematicCharacter(

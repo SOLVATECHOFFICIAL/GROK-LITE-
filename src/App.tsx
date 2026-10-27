@@ -10,7 +10,7 @@ import {
   VideoHistoryItem,
   VideoProject,
 } from './types/video';
-import { processGrokRequest } from './utils/grokAgent';
+import { processGrokRequest, isGenerateCommand } from './utils/grokAgent';
 import { GrokSidebar } from './components/GrokSidebar';
 import { GrokChatArea } from './components/GrokChatArea';
 import { MergenStudio } from './components/MergenStudio';
@@ -103,24 +103,22 @@ export default function App() {
   ]);
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState<boolean>(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState<boolean>(false);
   const [isMergenOpen, setIsMergenOpen] = useState<boolean>(false);
 
-  // Collect all generated videos from the current conversation
+  // Collect all generated videos from the CURRENT active conversation only
   const currentChatVideos: VideoProject[] = messages
     .map((m) => m.generatedVideo)
     .filter((v): v is VideoProject => Boolean(v));
 
-  // If chat is empty but user opened Mergen, fallback to history videos
-  const allEligibleVideos: VideoProject[] =
-    currentChatVideos.length > 0
-      ? currentChatVideos
-      : videoHistory.map((h) => h.video);
+  // Strictly per conversation - never carry over clips from another chat!
+  const allEligibleVideos: VideoProject[] = currentChatVideos;
 
   // Trigger continuation of an existing video as a discrete consecutive video
   const handleContinueScene = async (parentVideo: VideoProject) => {
     const nextPart = (parentVideo.partNumber || 1) + 1;
-    const prompt = `Continue the story from "${parentVideo.title}" where it ended at ${parentVideo.totalDuration}s. Direct Part ${nextPart} with next cinematic camera movements, continuing the character voice and narrative.`;
+    const prompt = `GENERATE continuation from "${parentVideo.title}" where it ended at ${parentVideo.totalDuration}s. Direct Part ${nextPart}.`;
 
     const userMsgId = `user_cont_${Date.now()}`;
     const userMsg: ChatMessage = {
@@ -131,6 +129,7 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+    setIsGeneratingVideo(true);
     setIsProcessing(true);
 
     try {
@@ -188,21 +187,24 @@ export default function App() {
     };
 
     setMessages((prev) => [...prev, userMsg]);
+
+    const lower = prompt.toLowerCase();
+    const isContinuationWord =
+      lower.includes('continue') ||
+      lower.includes('next part') ||
+      lower.includes('part 2') ||
+      lower.includes('part 3') ||
+      lower.includes('next scene');
+
+    const parentVideo = isContinuationWord
+      ? [...messages].reverse().find((m) => m.generatedVideo)?.generatedVideo
+      : undefined;
+
+    const willGenerate = isGenerateCommand(prompt, images, messages, parentVideo, Boolean(parentVideo));
+    setIsGeneratingVideo(willGenerate);
     setIsProcessing(true);
 
     try {
-      const lower = prompt.toLowerCase();
-      const isContinuationWord =
-        lower.includes('continue') ||
-        lower.includes('next part') ||
-        lower.includes('part 2') ||
-        lower.includes('part 3') ||
-        lower.includes('next scene');
-
-      const parentVideo = isContinuationWord
-        ? [...messages].reverse().find((m) => m.generatedVideo)?.generatedVideo
-        : undefined;
-
       const result = await processGrokRequest({
         prompt,
         images,
@@ -240,6 +242,7 @@ export default function App() {
       }
     } finally {
       setIsProcessing(false);
+      setIsGeneratingVideo(false);
     }
   };
 
@@ -290,6 +293,7 @@ export default function App() {
         messages={messages}
         onSendMessage={handleSendMessage}
         isProcessing={isProcessing}
+        isGeneratingVideo={isGeneratingVideo}
         onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
         onContinueScene={handleContinueScene}
         onOpenMergen={() => setIsMergenOpen(true)}

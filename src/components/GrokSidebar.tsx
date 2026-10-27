@@ -299,62 +299,56 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
+            <div className="space-y-3 text-xs">
               {/* Architecture Overview */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* API 1: Director & Memory AI */}
-                <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2">
+                <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-xs flex items-center gap-1.5 text-amber-400">
                       <Cpu className="w-3.5 h-3.5" />
-                      API 1: Story Memory & Director
+                      API 1: Brain & Memory
                     </span>
                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">
-                      Connected
+                      Active
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-400">
-                    <strong>Engine:</strong> Google Gemini 2.5 Flash / Grok Core
+                  <p className="text-[11px] text-neutral-300 font-medium">
+                    Google Gemini 3.8 Flash
                   </p>
-                  <ul className="text-[10px] text-neutral-400 space-y-1 list-disc list-inside">
-                    <li>Multi-turn persistent chat memory</li>
-                    <li>Story continuity across Part 1, 2, 3...</li>
-                    <li>Automatic character voice detection (Ghoul, Monster, Female Warrior, Hero, Robot)</li>
-                    <li>Cinematic shotlist & subtitle direction</li>
-                  </ul>
+                  <p className="text-[10px] text-neutral-500">
+                    Screenplay memory & seam harmonizing
+                  </p>
                 </div>
 
                 {/* API 2: Video Generation AI */}
-                <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2">
+                <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-white text-xs flex items-center gap-1.5 text-sky-400">
                       <Video className="w-3.5 h-3.5" />
-                      API 2: Video Generation Engine
+                      API 2: Video Engine
                     </span>
                     <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-mono">
-                      Key Loaded
+                      Active
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-400">
-                    <strong>Engine:</strong> Pixazo AI / Neural Video Pipeline
+                  <p className="text-[11px] text-neutral-300 font-medium">
+                    Canvas Director / Fal.ai
                   </p>
-                  <ul className="text-[10px] text-neutral-400 space-y-1 list-disc list-inside">
-                    <li>Camera paths (Dolly, Crane, Steadicam, Dutch tilt)</li>
-                    <li>Dynamic atmospheric effects & lighting</li>
-                    <li>Talking character lip-sync & speech waveform</li>
-                    <li>Zero-watermark MP4/WebM batch extraction</li>
-                  </ul>
+                  <p className="text-[10px] text-neutral-500">
+                    Frame camera paths & zero-watermark export
+                  </p>
                 </div>
               </div>
 
               {/* Engine Mode Configuration */}
-              <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2.5">
+              <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-semibold text-neutral-300">
-                    Video Render Engine:
+                  <label className="text-[11px] font-semibold text-neutral-300">
+                    Render Engine:
                   </label>
                   <span className="text-[10px] text-emerald-400 font-mono">
-                    Active
+                    Ready
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -366,13 +360,13 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
                       setKeySavedNotification(true);
                       setTimeout(() => setKeySavedNotification(false), 2000);
                     }}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border transition ${
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border transition ${
                       engineModeState === 'canvas-director'
                         ? 'bg-amber-400/20 text-amber-300 border-amber-400/50'
                         : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
                     }`}
                   >
-                    Canvas Director (Local)
+                    Canvas Director
                   </button>
                   <button
                     type="button"
@@ -382,45 +376,33 @@ export const GrokSidebar: React.FC<GrokSidebarProps> = ({
                       setKeySavedNotification(true);
                       setTimeout(() => setKeySavedNotification(false), 2000);
                     }}
-                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold border transition ${
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border transition ${
                       engineModeState === 'pixazo-cloud'
                         ? 'bg-sky-400/20 text-sky-300 border-sky-400/50'
                         : 'bg-neutral-900 text-neutral-400 border-neutral-800 hover:text-white'
                     }`}
                   >
-                    Cloud Neural Pipeline
+                    Cloud Neural
                   </button>
                 </div>
                 {keySavedNotification && (
                   <p className="text-[11px] text-emerald-400 flex items-center gap-1">
-                    <Check className="w-3.5 h-3.5" /> Engine configuration updated!
+                    <Check className="w-3.5 h-3.5" /> Engine saved!
                   </p>
                 )}
               </div>
 
               {/* Hand-in-Hand Collaboration Pipeline Diagram */}
-              <div className="p-3.5 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-2">
+              <div className="p-3 rounded-2xl bg-neutral-950 border border-neutral-800 space-y-1.5">
                 <span className="font-bold text-neutral-300 text-xs flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Hand-in-Hand Generation Pipeline
+                  Dual-AI Pipeline
                 </span>
-                <div className="p-2.5 rounded-xl bg-neutral-900 border border-neutral-800 font-mono text-[10px] text-neutral-300 space-y-1.5">
-                  <div className="flex items-center gap-2 text-amber-300">
-                    <span className="w-4 h-4 rounded bg-amber-400/20 flex items-center justify-center font-bold">1</span>
-                    <span>User Prompt & Reference Stills ➔</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-emerald-300">
-                    <span className="w-4 h-4 rounded bg-emerald-400/20 flex items-center justify-center font-bold">2</span>
-                    <span>Gemini 2.5 Flash tracks context & scripts shots ➔</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sky-300">
-                    <span className="w-4 h-4 rounded bg-sky-400/20 flex items-center justify-center font-bold">3</span>
-                    <span>Pixazo AI generates frames, speech & motion ➔</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-purple-300">
-                    <span className="w-4 h-4 rounded bg-purple-400/20 flex items-center justify-center font-bold">4</span>
-                    <span>Mergen Studio harmonizes split seams for 1 seamless movie!</span>
-                  </div>
+                <div className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 font-mono text-[10px] text-neutral-300 space-y-1">
+                  <div className="text-amber-300">1. Chat / Prompt ➔</div>
+                  <div className="text-emerald-300">2. Gemini Brain directs & scripts ➔</div>
+                  <div className="text-sky-300">3. Video Engine generates frames & speech ➔</div>
+                  <div className="text-purple-300">4. Mergen harmonizes splits per conversation</div>
                 </div>
               </div>
             </div>

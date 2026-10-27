@@ -6,7 +6,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Film,
-  Layers,
   Play,
   Pause,
   RotateCcw,
@@ -20,16 +19,13 @@ import {
   Loader2,
   Brain,
   Sparkles,
-  Sliders,
-  Scissors,
-  CheckCircle2,
   ArrowRight,
-  RefreshCw,
-  Video,
+  ArrowLeft,
+  FileText,
+  Clock,
 } from 'lucide-react';
 import {
   AspectRatio,
-  CharacterType,
   MergeTransitionType,
   SplitTransitionInfo,
   VideoProject,
@@ -52,37 +48,31 @@ interface MergenStudioProps {
   onClose: () => void;
 }
 
-type MergenStage = 'selection' | 'harmonizing' | 'preview';
+export type MergenStep = 'select' | 'ratio_seams' | 'harmonizing' | 'preview' | 'download';
 
 export const MergenStudio: React.FC<MergenStudioProps> = ({
   availableVideos,
   onClose,
 }) => {
-  // Mergen Stage: 'selection' -> 'harmonizing' -> 'preview'
-  const [stage, setStage] = useState<MergenStage>('selection');
+  const [currentStep, setCurrentStep] = useState<MergenStep>('select');
   const [harmonizeProgress, setHarmonizeProgress] = useState<number>(0);
   const [harmonizeMessage, setHarmonizeMessage] = useState<string>('');
 
-  // Ordered list of clip IDs that the user has selected
-  // Initialize with all available videos by default
   const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>(() =>
     availableVideos.map((v) => v.id)
   );
 
-  // Per-split customized transitions (key: "fromId_toId")
   const [splitOverrides, setSplitOverrides] = useState<
     Record<string, MergeTransitionType>
   >({});
 
   const [targetAspect, setTargetAspect] = useState<AspectRatio>('16:9');
 
-  // Preview player state
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [isCharacterSpeaking, setIsCharacterSpeaking] = useState<boolean>(false);
 
-  // Extraction export state
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
   const [extractProgress, setExtractProgress] = useState<number>(0);
   const [extractStatus, setExtractStatus] = useState<string>('');
@@ -91,21 +81,18 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
   const animFrameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
 
-  // Subscribe to character voice speaking events
   useEffect(() => {
     return characterVoiceEngine.subscribe((spk) => {
       setIsCharacterSpeaking(spk);
     });
   }, []);
 
-  // Filter selected videos in their explicit user sequence
   const orderedVideos = useMemo(() => {
     return selectedVideoIds
       .map((id) => availableVideos.find((v) => v.id === id))
       .filter((v): v is VideoProject => Boolean(v));
   }, [selectedVideoIds, availableVideos]);
 
-  // Compute AI Brain split transitions between each adjacent selected video
   const computedSplits: SplitTransitionInfo[] = useMemo(() => {
     const splits: SplitTransitionInfo[] = [];
     for (let i = 0; i < orderedVideos.length - 1; i++) {
@@ -145,7 +132,6 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     return splits;
   }, [orderedVideos, splitOverrides]);
 
-  // Build flattened composite scenes list with transition metadata
   const compositeScenes: Array<
     VideoScene & {
       parentVideoId: string;
@@ -193,10 +179,9 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     return compositeScenes.reduce((sum, s) => sum + s.duration, 0);
   }, [compositeScenes]);
 
-  // Toggle selection of a clip by ID
   const toggleSelect = (id: string) => {
     if (selectedVideoIds.includes(id)) {
-      if (selectedVideoIds.length <= 1) return; // Keep at least 1 clip
+      if (selectedVideoIds.length <= 1) return;
       setSelectedVideoIds((prev) => prev.filter((vId) => vId !== id));
     } else {
       setSelectedVideoIds((prev) => [...prev, id]);
@@ -205,7 +190,6 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     setIsPlaying(false);
   };
 
-  // Re-order a selected video
   const moveVideo = (index: number, direction: 'up' | 'down') => {
     const targetIdx = direction === 'up' ? index - 1 : index + 1;
     if (targetIdx < 0 || targetIdx >= selectedVideoIds.length) return;
@@ -218,10 +202,7 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     setIsPlaying(false);
   };
 
-  // Pre-load scene images
-  const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(
-    new Map()
-  );
+  const [loadedImages, setLoadedImages] = useState<Map<string, HTMLImageElement>>(new Map());
   useEffect(() => {
     const map = new Map<string, HTMLImageElement>();
     compositeScenes.forEach((scene) => {
@@ -237,32 +218,26 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     });
   }, [compositeScenes]);
 
-  // Trigger the AI Merging & Harmonizing sequence
   const handleStartHarmonizing = async () => {
     if (orderedVideos.length === 0) return;
-    setStage('harmonizing');
-    setHarmonizeProgress(15);
-    setHarmonizeMessage('AI Brain scanning clip seam boundaries and vectors...');
-
-    await new Promise((r) => setTimeout(r, 450));
-    setHarmonizeProgress(45);
-    setHarmonizeMessage('Analyzing color grade tone curves for seamless palette matching...');
-
-    await new Promise((r) => setTimeout(r, 500));
-    setHarmonizeProgress(75);
-    setHarmonizeMessage('Harmonizing audio dynamic range & orchestral score cues...');
-
-    await new Promise((r) => setTimeout(r, 450));
-    setHarmonizeProgress(100);
-    setHarmonizeMessage('Seamless split transitions calibrated! Launching unified preview.');
+    setCurrentStep('harmonizing');
+    setHarmonizeProgress(25);
+    setHarmonizeMessage('Analyzing camera vectors...');
 
     await new Promise((r) => setTimeout(r, 350));
-    setStage('preview');
+    setHarmonizeProgress(60);
+    setHarmonizeMessage('Balancing color & audio curves...');
+
+    await new Promise((r) => setTimeout(r, 400));
+    setHarmonizeProgress(100);
+    setHarmonizeMessage('Splits aligned!');
+
+    await new Promise((r) => setTimeout(r, 250));
+    setCurrentStep('preview');
     setCurrentTime(0);
     setIsPlaying(true);
   };
 
-  // Find active scene in composite timeline
   let accumulatedTime = 0;
   let activeIndex = 0;
   let sceneLocalTime = 0;
@@ -283,10 +258,9 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
   const activeScene = compositeScenes[activeIndex] || compositeScenes[0];
   const sceneProgress = activeScene ? sceneLocalTime / activeScene.duration : 0;
 
-  // Sound effects and speech triggering on scene switch
   const lastActiveRef = useRef<number>(-1);
   useEffect(() => {
-    if (!isPlaying || stage !== 'preview') return;
+    if (!isPlaying || currentStep !== 'preview') return;
     if (lastActiveRef.current !== activeIndex) {
       lastActiveRef.current = activeIndex;
       if (activeScene?.sfxAtStart && activeScene.sfxAtStart !== 'none' && !isMuted) {
@@ -299,21 +273,24 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
         );
       }
     }
-  }, [activeIndex, isPlaying, isMuted, activeScene, stage]);
+  }, [activeIndex, isPlaying, currentStep, isMuted, activeScene]);
 
-  // Background orchestral score during preview
   useEffect(() => {
-    if (isPlaying && stage === 'preview' && !isMuted) {
+    if (isPlaying && currentStep === 'preview') {
+      videoAudio.setMuted(isMuted);
       videoAudio.playMusic('cinematic-orchestra');
     } else {
       videoAudio.stopMusic();
-      characterVoiceEngine.cancel();
+      videoAudio.stopSpeech();
     }
-  }, [isPlaying, isMuted, stage]);
+    return () => {
+      videoAudio.stopMusic();
+      videoAudio.stopSpeech();
+    };
+  }, [isPlaying, isMuted, currentStep]);
 
-  // Playback animation frame loop
   useEffect(() => {
-    if (!isPlaying || stage !== 'preview') {
+    if (!isPlaying || (currentStep !== 'preview' && currentStep !== 'download')) {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       return;
     }
@@ -340,9 +317,8 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, totalDuration, stage]);
+  }, [isPlaying, totalDuration, currentStep]);
 
-  // Render canvas frame
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !activeScene) return;
@@ -390,12 +366,9 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
       ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
 
-      renderCinematicEnvironment(ctx, width, height, currentTime, charType);
+      renderCinematicEnvironment(ctx, width, height, currentTime, charType, activeScene.biome, true);
     } else {
-      // Procedural Hollywood cinematic atmosphere
-      renderCinematicEnvironment(ctx, width, height, currentTime, charType);
-
-      // Procedural talking character figure with breathing, blinking, and speech mouth/waveform pulsation
+      renderCinematicEnvironment(ctx, width, height, currentTime, charType, activeScene.biome, false);
       renderCinematicCharacter(
         ctx,
         width,
@@ -407,10 +380,8 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
       );
     }
 
-    // Apply Post-processing visual effects
     renderCanvasEffects(ctx, activeScene.effects, width, height, sceneProgress);
 
-    // Apply split transition blend if entering a new clip
     if (activeScene.isFirstInClip && activeScene.incomingSplit) {
       const split = activeScene.incomingSplit;
       const transDuration = split.duration;
@@ -440,7 +411,6 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
       }
     }
 
-    // Subtitle rendering with clean drop shadow
     if (activeScene.cinematicSubtitle) {
       const displaySubtitle = activeScene.speakerName
         ? `[${activeScene.speakerName}]: "${activeScene.cinematicSubtitle}"`
@@ -460,13 +430,12 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
     isCharacterSpeaking,
   ]);
 
-  // Real Video Extraction & Stitcher
   const handleExtractAndDownload = async () => {
     if (isExtracting || compositeScenes.length === 0) return;
 
     setIsExtracting(true);
     setExtractProgress(10);
-    setExtractStatus('Initializing seamless Mergen frame pipeline...');
+    setExtractStatus('Preparing recorder...');
 
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -510,7 +479,7 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
       });
 
       mediaRecorder.start();
-      setExtractStatus(`Merging ${orderedVideos.length} clips with AI seamless split harmonization...`);
+      setExtractStatus(`Rendering ${orderedVideos.length} clips...`);
 
       const totalSimSeconds = Math.min(totalDuration, 30);
       const stepInterval = 0.25;
@@ -520,114 +489,163 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
         setCurrentTime(simTime);
         const percent = Math.min(95, Math.round((simTime / totalSimSeconds) * 90) + 5);
         setExtractProgress(percent);
-        setExtractStatus(`Rendering seamless transition frames (${percent}%)...`);
-        await new Promise((r) => setTimeout(r, 55));
+        setExtractStatus(`Exporting (${percent}%)...`);
+        await new Promise((r) => setTimeout(r, 45));
         simTime += stepInterval;
       }
 
       mediaRecorder.stop();
       setExtractProgress(98);
-      setExtractStatus('Finalizing high-definition unified film container...');
+      setExtractStatus('Packaging file...');
 
       const blob = await recordPromise;
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `mergen_unified_film_${orderedVideos.length}_clips_${targetAspect.replace(':', 'x')}.webm`;
+      a.download = `merged_film_${orderedVideos.length}_clips.webm`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
       setExtractProgress(100);
-      setExtractStatus('Export complete! Your merged film has downloaded.');
+      setExtractStatus('Downloaded!');
       setTimeout(() => {
         setIsExtracting(false);
         setExtractProgress(0);
-      }, 2500);
+      }, 2000);
     } catch (err) {
-      console.error('Mergen extraction failed:', err);
-      setExtractStatus('Extraction error. Please try again.');
+      console.error('Extraction error:', err);
+      setExtractStatus('Failed. Try again.');
       setIsExtracting(false);
     }
   };
 
+  const getStepNumber = (step: MergenStep): number => {
+    switch (step) {
+      case 'select':
+        return 1;
+      case 'ratio_seams':
+        return 2;
+      case 'harmonizing':
+      case 'preview':
+        return 3;
+      case 'download':
+        return 4;
+      default:
+        return 1;
+    }
+  };
+
+  const activeStepNum = getStepNumber(currentStep);
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/92 backdrop-blur-xl flex flex-col overflow-hidden font-sans select-none">
-      {/* Top Global Mergen Bar */}
+    <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-xl flex flex-col overflow-hidden font-sans select-none text-neutral-100">
+      <div className={currentStep === 'preview' ? 'hidden' : 'fixed -left-[9999px] -top-[9999px] pointer-events-none'}>
+        <canvas ref={canvasRef} />
+      </div>
+
+      {/* TOP HEADER */}
       <header className="h-14 border-b border-neutral-800 bg-neutral-950 px-4 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-neutral-950 flex items-center justify-center font-black text-sm shadow-lg shadow-amber-500/20">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-amber-400 text-neutral-950 flex items-center justify-center font-black text-sm">
             M
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-extrabold text-sm text-white tracking-tight">
-                MERGEN STUDIO
-              </h2>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20 flex items-center gap-1">
-                <Brain className="w-3 h-3" />
-                AI Brain Split Harmonizer
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-400">
-              Pick conversation clips, harmonize splits seamlessly, preview & download
-            </p>
+            <h2 className="font-extrabold text-sm text-white">MERGEN STUDIO</h2>
+            <p className="text-[10px] text-neutral-400">Per-Conversation Video Stitcher</p>
           </div>
         </div>
 
-        {/* Stage Navigation & Close */}
-        <div className="flex items-center gap-3">
-          {stage === 'preview' && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsPlaying(false);
-                setStage('selection');
-              }}
-              className="px-3 py-1.5 rounded-lg border border-neutral-700 bg-neutral-900 hover:bg-neutral-800 text-xs text-neutral-300 hover:text-white transition flex items-center gap-1.5"
-            >
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Edit Selection & Splits</span>
-            </button>
-          )}
-
+        {/* 4-STEP INDICATOR */}
+        <div className="flex items-center gap-1 bg-neutral-900 border border-neutral-800 rounded-xl p-1 text-xs font-semibold">
           <button
             type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-900 transition"
-            title="Close Mergen Studio"
+            onClick={() => {
+              setIsPlaying(false);
+              setCurrentStep('select');
+            }}
+            className={`px-3 py-1 rounded-lg transition ${
+              activeStepNum === 1 ? 'bg-amber-400 text-neutral-950 font-bold' : 'text-neutral-400 hover:text-white'
+            }`}
           >
-            <X className="w-5 h-5" />
+            1. Select
+          </button>
+          <span className="text-neutral-700">›</span>
+          <button
+            type="button"
+            disabled={orderedVideos.length === 0}
+            onClick={() => {
+              setIsPlaying(false);
+              setCurrentStep('ratio_seams');
+            }}
+            className={`px-3 py-1 rounded-lg transition ${
+              activeStepNum === 2 ? 'bg-amber-400 text-neutral-950 font-bold' : 'text-neutral-400 hover:text-white disabled:opacity-40'
+            }`}
+          >
+            2. Ratio & Seams
+          </button>
+          <span className="text-neutral-700">›</span>
+          <button
+            type="button"
+            disabled={orderedVideos.length === 0}
+            onClick={() => {
+              setCurrentStep('preview');
+              setCurrentTime(0);
+              setIsPlaying(true);
+            }}
+            className={`px-3 py-1 rounded-lg transition ${
+              activeStepNum === 3 ? 'bg-amber-400 text-neutral-950 font-bold' : 'text-neutral-400 hover:text-white disabled:opacity-40'
+            }`}
+          >
+            3. Preview
+          </button>
+          <span className="text-neutral-700">›</span>
+          <button
+            type="button"
+            disabled={orderedVideos.length === 0}
+            onClick={() => {
+              setIsPlaying(false);
+              setCurrentStep('download');
+            }}
+            className={`px-3 py-1 rounded-lg transition ${
+              activeStepNum === 4 ? 'bg-amber-400 text-neutral-950 font-bold' : 'text-neutral-400 hover:text-white disabled:opacity-40'
+            }`}
+          >
+            4. Download
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1.5 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-900 transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </header>
 
-      {/* Main Body depending on Stage */}
-      {stage === 'selection' && (
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* Left: Clips in Conversation Checklist */}
-          <div className="w-full md:w-1/2 border-r border-neutral-800 flex flex-col h-full bg-neutral-950/80 overflow-hidden">
-            <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/40">
-              <div>
-                <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-300">
-                  Step 1: Select Conversation Clips
-                </h3>
-                <p className="text-[11px] text-neutral-400">
-                  Tick the clips you want to align (e.g. tick 1, 2, skip 3, tick 5)
-                </p>
-              </div>
-              <span className="text-xs font-mono px-2 py-1 rounded bg-neutral-800 text-amber-400 font-bold">
-                {orderedVideos.length} of {availableVideos.length} selected
-              </span>
+      {/* PAGE 1: SELECT CLIPS */}
+      {currentStep === 'select' && (
+        <div className="flex-1 flex flex-col overflow-hidden bg-neutral-950">
+          <div className="p-4 px-6 border-b border-neutral-800 flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-bold text-white">Select Clips to Merge</h1>
+              <p className="text-[11px] text-neutral-400">Tick clips to align. Unchecked clips are skipped.</p>
             </div>
+            <div className="text-xs font-mono px-3 py-1 rounded-lg bg-neutral-900 text-amber-400 border border-neutral-800">
+              {orderedVideos.length} of {availableVideos.length} ticked ({totalDuration.toFixed(1)}s)
+            </div>
+          </div>
 
-            {/* Clips list */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {availableVideos.length === 0 ? (
-                <div className="text-center py-12 text-neutral-500 text-sm">
-                  No video clips generated yet in this conversation.
+                <div className="col-span-full text-center py-24 text-neutral-500">
+                  <Film className="w-10 h-10 mx-auto mb-2 opacity-30 text-amber-400" />
+                  <p className="text-sm font-semibold text-neutral-300">No clips in this chat yet.</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">Type GENERATE in chat to create clips.</p>
                 </div>
               ) : (
                 availableVideos.map((vid, idx) => {
@@ -638,494 +656,360 @@ export const MergenStudio: React.FC<MergenStudioProps> = ({
                   return (
                     <div
                       key={vid.id}
-                      className={`p-3 rounded-xl border transition-all flex items-center gap-3 ${
+                      onClick={() => toggleSelect(vid.id)}
+                      className={`rounded-2xl border p-4 transition cursor-pointer flex flex-col justify-between ${
                         isSelected
-                          ? 'border-amber-500/40 bg-neutral-900/90 text-white shadow-lg'
-                          : 'border-neutral-850 bg-neutral-950/40 text-neutral-500 opacity-60 hover:opacity-80'
+                          ? 'bg-neutral-900 border-amber-500/60 ring-1 ring-amber-500/30'
+                          : 'bg-neutral-950 border-neutral-850 opacity-60 hover:opacity-90'
                       }`}
                     >
-                      {/* Checkbox */}
-                      <button
-                        type="button"
-                        onClick={() => toggleSelect(vid.id)}
-                        className={`w-6 h-6 rounded-md flex items-center justify-center text-xs shrink-0 border transition ${
-                          isSelected
-                            ? 'bg-amber-400 border-amber-400 text-neutral-950 font-black shadow'
-                            : 'border-neutral-700 bg-neutral-800 text-transparent'
-                        }`}
-                        title={isSelected ? 'Deselect clip' : 'Select clip'}
-                      >
-                        <Check className="w-4 h-4 stroke-[3]" />
-                      </button>
-
-                      {/* Clip Badge */}
-                      <div className="w-12 h-12 rounded-lg bg-neutral-800 border border-neutral-700 flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[10px] text-neutral-400 font-mono">
-                          CLIP
-                        </span>
-                        <span className="font-extrabold text-sm text-white">
-                          #{clipNumber}
-                        </span>
-                      </div>
-
-                      {/* Clip Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs truncate text-white">
-                            {vid.title}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-mono font-bold text-amber-400">
+                            Clip #{clipNumber}
                           </span>
-                          {vid.partNumber && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-neutral-800 text-neutral-300">
-                              Part {vid.partNumber}
-                            </span>
-                          )}
+                          <span
+                            className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition ${
+                              isSelected
+                                ? 'bg-amber-400 text-neutral-950 border-amber-400'
+                                : 'bg-neutral-900 text-neutral-500 border-neutral-800'
+                            }`}
+                          >
+                            {isSelected ? `Tick #${orderIndex + 1}` : 'Skipped'}
+                          </span>
                         </div>
-                        <p className="text-[11px] text-neutral-400 truncate mt-0.5">
+
+                        <h3 className="font-bold text-xs text-white line-clamp-1 mb-1">
+                          {vid.title}
+                        </h3>
+                        <p className="text-[11px] text-neutral-400 line-clamp-2 mb-3">
                           {vid.prompt}
                         </p>
-                        <div className="flex items-center gap-2.5 text-[10px] text-neutral-400 mt-1">
-                          <span className="font-mono text-amber-400">
-                            {vid.totalDuration.toFixed(1)}s
-                          </span>
-                          <span>•</span>
-                          <span>{vid.scenes.length} shots</span>
-                          {vid.characterType && (
-                            <>
-                              <span>•</span>
-                              <span className="uppercase font-mono text-[9px] text-sky-400">
-                                {vid.characterType}
-                              </span>
-                            </>
-                          )}
-                        </div>
                       </div>
 
-                      {/* Reorder Up/Down */}
-                      {isSelected && (
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            disabled={orderIndex === 0}
-                            onClick={() => moveVideo(orderIndex, 'up')}
-                            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-20 text-neutral-300"
-                            title="Move Earlier in Merge Sequence"
-                          >
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={orderIndex === selectedVideoIds.length - 1}
-                            onClick={() => moveVideo(orderIndex, 'down')}
-                            className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 disabled:opacity-20 text-neutral-300"
-                            title="Move Later in Merge Sequence"
-                          >
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
+                      <div className="pt-2 border-t border-neutral-800 flex items-center justify-between text-[10px] text-neutral-400 font-mono">
+                        <span>{vid.totalDuration.toFixed(1)}s • {vid.scenes.length} shots</span>
+                        {isSelected && (
+                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              disabled={orderIndex <= 0}
+                              onClick={() => moveVideo(orderIndex, 'up')}
+                              className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-30"
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={orderIndex >= selectedVideoIds.length - 1}
+                              onClick={() => moveVideo(orderIndex, 'down')}
+                              className="p-1 rounded bg-neutral-800 hover:bg-neutral-700 disabled:opacity-30"
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })
               )}
             </div>
+          </div>
 
-            {/* Selected Sequence Summary Ribbon */}
-            <div className="p-3 border-t border-neutral-800 bg-neutral-900/70">
-              <div className="text-[11px] font-semibold text-neutral-300 mb-1.5 flex items-center justify-between">
-                <span>Active Merge Sequence</span>
-                <span className="font-mono text-amber-400 font-bold">
-                  {totalDuration.toFixed(1)}s Total
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {orderedVideos.map((vid, idx) => {
-                  const originalIndex = availableVideos.findIndex((v) => v.id === vid.id) + 1;
-                  return (
-                    <React.Fragment key={vid.id}>
-                      <span className="px-2 py-1 rounded-md bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-mono font-bold">
-                        Clip #{originalIndex}
-                      </span>
-                      {idx < orderedVideos.length - 1 && (
-                        <ArrowRight className="w-3 h-3 text-neutral-500" />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
+          <footer className="p-3 px-6 border-t border-neutral-800 bg-neutral-950 flex items-center justify-between">
+            <span className="text-xs text-neutral-400 font-mono">
+              Sequence: {orderedVideos.map((_, i) => `#${i + 1}`).join(' › ') || 'None'}
+            </span>
+            <button
+              type="button"
+              disabled={orderedVideos.length === 0}
+              onClick={() => setCurrentStep('ratio_seams')}
+              className="px-5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-neutral-950 font-bold text-xs transition flex items-center gap-1.5"
+            >
+              <span>Next: Ratio & Seams</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </footer>
+        </div>
+      )}
+
+      {/* PAGE 2: RATIO & SEAMS */}
+      {currentStep === 'ratio_seams' && (
+        <div className="flex-1 flex flex-col overflow-hidden bg-neutral-950">
+          <div className="p-4 px-6 border-b border-neutral-800 flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-bold text-white">Ratio & Seam Transitions</h1>
+              <p className="text-[11px] text-neutral-400">Choose framing and custom seam blends.</p>
             </div>
           </div>
 
-          {/* Right: AI Split Brain & Harmonizer */}
-          <div className="w-full md:w-1/2 flex flex-col h-full bg-neutral-950 overflow-hidden">
-            <div className="p-4 border-b border-neutral-800 bg-neutral-900/40 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-300 flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-amber-400" />
-                  Step 2: AI Brain Split Transitions
-                </h3>
-                <p className="text-[11px] text-neutral-400">
-                  AI analyzes camera vectors and lighting to eliminate visible seams
-                </p>
-              </div>
-
-              {/* Target Aspect */}
-              <div className="flex items-center gap-1 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
-                {(['16:9', '9:16', '1:1'] as AspectRatio[]).map((ratio) => (
+          <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto w-full space-y-6">
+            <div>
+              <h3 className="text-xs font-bold text-neutral-300 mb-2">Framing</h3>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: '16:9' as AspectRatio, label: '16:9 Cinema', sub: '1920×1080' },
+                  { id: '9:16' as AspectRatio, label: '9:16 Vertical', sub: '1080×1920' },
+                  { id: '1:1' as AspectRatio, label: '1:1 Square', sub: '1080×1080' },
+                ].map((r) => (
                   <button
-                    key={ratio}
+                    key={r.id}
                     type="button"
-                    onClick={() => setTargetAspect(ratio)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition ${
-                      targetAspect === ratio
-                        ? 'bg-amber-400 text-neutral-950'
-                        : 'text-neutral-400 hover:text-white'
+                    onClick={() => setTargetAspect(r.id)}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      targetAspect === r.id
+                        ? 'bg-amber-400/10 border-amber-400 text-white font-bold'
+                        : 'bg-neutral-900 border-neutral-800 text-neutral-400'
                     }`}
                   >
-                    {ratio}
+                    <div className="text-xs">{r.label}</div>
+                    <div className="text-[10px] text-neutral-500 font-mono">{r.sub}</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Split List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div>
+              <h3 className="text-xs font-bold text-neutral-300 mb-2">
+                Seams ({computedSplits.length})
+              </h3>
               {computedSplits.length === 0 ? (
-                <div className="text-center py-16 text-neutral-500 text-sm">
-                  Select at least 2 clips to configure split transitions.
+                <div className="p-4 rounded-xl bg-neutral-900 text-xs text-neutral-400 text-center">
+                  Only 1 clip selected. No seams to blend.
                 </div>
               ) : (
-                computedSplits.map((split, sIdx) => {
-                  const fromVid = orderedVideos[sIdx];
-                  const toVid = orderedVideos[sIdx + 1];
-                  const fromClipNum = availableVideos.findIndex((v) => v.id === fromVid?.id) + 1;
-                  const toClipNum = availableVideos.findIndex((v) => v.id === toVid?.id) + 1;
-
-                  return (
-                    <div
-                      key={split.id}
-                      className="p-3.5 rounded-xl border border-neutral-800 bg-neutral-900/60 space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Scissors className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="font-bold text-xs text-white">
-                            Split Seam {sIdx + 1}: Clip #{fromClipNum} ➔ Clip #{toClipNum}
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-400/10 text-amber-400 border border-amber-400/30">
-                          {split.duration.toFixed(2)}s blend
-                        </span>
+                <div className="space-y-3">
+                  {computedSplits.map((split, sIdx) => (
+                    <div key={split.id} className="p-3.5 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-between gap-3">
+                      <div className="text-xs font-mono text-neutral-300">
+                        Clip #{split.fromClipIndex} ➔ Clip #{split.toClipIndex}
                       </div>
-
-                      <p className="text-[11px] text-neutral-300 leading-relaxed bg-neutral-950/70 p-2.5 rounded-lg border border-neutral-800/80">
-                        {split.aiReasoning}
-                      </p>
-
-                      {/* Transition Type Chooser for this split */}
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {(
-                          [
-                            ['ai-matched', 'AI Smart Match'],
-                            ['cross-dissolve', 'Cross-Dissolve'],
-                            ['dip-to-black', 'Dip to Black'],
-                            ['motion-whip', 'Motion Whip'],
-                            ['hard-cut', 'Hard Cut'],
-                          ] as const
-                        ).map(([type, label]) => (
-                          <button
-                            key={type}
-                            type="button"
-                            onClick={() => {
-                              setSplitOverrides((prev) => ({
-                                ...prev,
-                                [split.id]: type,
-                              }));
-                            }}
-                            className={`px-2.5 py-1 rounded-md text-[10px] font-medium border transition ${
-                              split.transitionType === type
-                                ? 'bg-amber-400 text-neutral-950 border-amber-400 font-bold'
-                                : 'bg-neutral-800/80 text-neutral-400 border-neutral-700 hover:text-white'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
+                      <select
+                        value={split.transitionType}
+                        onChange={(e) => {
+                          setSplitOverrides((prev) => ({
+                            ...prev,
+                            [split.id]: e.target.value as MergeTransitionType,
+                          }));
+                        }}
+                        className="bg-neutral-950 border border-neutral-700 rounded-lg px-2.5 py-1 text-xs text-amber-300 font-semibold"
+                      >
+                        <option value="ai-matched">AI Smart Match</option>
+                        <option value="cross-dissolve">Luma Dissolve</option>
+                        <option value="dip-to-black">Dip to Black</option>
+                        <option value="motion-whip">Whip Pan</option>
+                        <option value="hard-cut">Hard Cut</option>
+                      </select>
                     </div>
-                  );
-                })
+                  ))}
+                </div>
               )}
             </div>
+          </div>
 
-            {/* Launch Merging & Harmonizing Button */}
-            <div className="p-4 border-t border-neutral-800 bg-neutral-950 flex items-center justify-between">
-              <div>
-                <div className="text-xs font-bold text-white">
-                  Ready to Assemble
-                </div>
-                <div className="text-[11px] text-neutral-400">
-                  {orderedVideos.length} clips • {totalDuration.toFixed(1)}s total runtime
-                </div>
+          <footer className="p-3 px-6 border-t border-neutral-800 bg-neutral-950 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setCurrentStep('select')}
+              className="px-4 py-1.5 rounded-lg border border-neutral-700 text-xs text-neutral-300 hover:text-white"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleStartHarmonizing}
+              className="px-5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs transition flex items-center gap-1.5"
+            >
+              <span>Harmonize & Preview</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </footer>
+        </div>
+      )}
+
+      {/* PAGE 3: HARMONIZING OVERLAY OR PREVIEW ALL */}
+      {currentStep === 'harmonizing' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-neutral-950 text-center">
+          <Brain className="w-8 h-8 text-amber-400 mb-3 animate-pulse" />
+          <h2 className="text-base font-bold text-white">Harmonizing Splits...</h2>
+          <p className="text-xs text-neutral-400 mt-1 font-mono">{harmonizeMessage}</p>
+          <div className="w-64 bg-neutral-900 h-1.5 rounded-full overflow-hidden mt-4">
+            <div className="h-full bg-amber-400 transition-all duration-300" style={{ width: `${harmonizeProgress}%` }} />
+          </div>
+        </div>
+      )}
+
+      {currentStep === 'preview' && (
+        <div className="flex-1 flex flex-col overflow-hidden bg-neutral-950">
+          <div className="p-3 px-6 border-b border-neutral-800 flex items-center justify-between">
+            <span className="text-xs font-mono font-bold text-amber-400 truncate">
+              Playing Clip #{activeScene.parentClipNumber}: {activeScene.title}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsMuted(!isMuted)}
+              className="p-1.5 rounded-lg bg-neutral-900 text-neutral-300 hover:text-white"
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <div className="flex-1 flex items-center justify-center p-4 bg-black/80 relative overflow-hidden">
+            <canvas ref={canvasRef} className="max-h-[70vh] w-auto h-auto object-contain rounded-xl shadow-2xl" />
+          </div>
+
+          <div className="p-3 px-6 border-t border-neutral-800 bg-neutral-950 space-y-2">
+            <input
+              type="range"
+              min={0}
+              max={Math.max(totalDuration, 0.1)}
+              step={0.05}
+              value={currentTime}
+              onChange={(e) => setCurrentTime(parseFloat(e.target.value))}
+              className="w-full accent-amber-400 cursor-pointer h-1.5 bg-neutral-800 rounded-lg"
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPlaying(!isPlaying)}
+                  className="px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs"
+                >
+                  {isPlaying ? 'Pause' : 'Play'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentTime(0);
+                    setIsPlaying(true);
+                  }}
+                  className="p-1.5 rounded-lg bg-neutral-900 text-neutral-300 hover:text-white"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] font-mono text-neutral-400">
+                  {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
+                </span>
               </div>
-
               <button
                 type="button"
-                disabled={orderedVideos.length === 0}
-                onClick={handleStartHarmonizing}
-                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-amber-400/20 disabled:opacity-40 transition cursor-pointer"
+                onClick={() => {
+                  setIsPlaying(false);
+                  setCurrentStep('download');
+                }}
+                className="px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold text-xs flex items-center gap-1.5"
               >
-                <Sparkles className="w-4 h-4" />
-                <span>Merge & Harmonize with AI Brain</span>
+                <span>Next: Download</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stage: Harmonizing in Progress */}
-      {stage === 'harmonizing' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 bg-neutral-950">
-          <div className="max-w-md w-full p-8 rounded-2xl border border-neutral-800 bg-neutral-900/90 text-center space-y-6 shadow-2xl">
-            <div className="w-16 h-16 rounded-2xl bg-amber-400/10 border border-amber-400/30 text-amber-400 flex items-center justify-center mx-auto shadow-inner">
-              <Brain className="w-8 h-8 animate-pulse" />
+      {/* PAGE 4: DIRECT DOWNLOAD */}
+      {currentStep === 'download' && (
+        <div className="flex-1 flex flex-col overflow-hidden bg-neutral-950">
+          <div className="p-4 px-6 border-b border-neutral-800 flex items-center justify-between">
+            <div>
+              <h1 className="text-base font-bold text-white">Download Merged Movie</h1>
+              <p className="text-[11px] text-neutral-400">Zero watermarks. Full resolution.</p>
             </div>
-
-            <div className="space-y-2">
-              <h3 className="font-extrabold text-lg text-white">
-                AI Brain Merging & Harmonizing
-              </h3>
-              <p className="text-xs text-neutral-400 min-h-[32px]">
-                {harmonizeMessage}
-              </p>
-            </div>
-
-            {/* Progress bar */}
-            <div className="space-y-2">
-              <div className="h-2.5 w-full bg-neutral-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300 ease-out"
-                  style={{ width: `${harmonizeProgress}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] font-mono text-neutral-500">
-                <span>{orderedVideos.length} Clips Selected</span>
-                <span>{harmonizeProgress}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Stage: Unified Seamless Preview Player */}
-      {stage === 'preview' && (
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* Main Canvas Player Area */}
-          <div className="flex-1 flex flex-col items-center justify-center bg-black relative p-4 overflow-hidden">
-            <div className="relative max-w-full max-h-full flex items-center justify-center">
-              <canvas
-                ref={canvasRef}
-                className="max-h-[62vh] max-w-full rounded-xl shadow-2xl border border-neutral-800 bg-neutral-950 object-contain"
-              />
-
-              {/* Seamless Split Seam Indicator Notification */}
-              {activeScene.isFirstInClip && activeScene.incomingSplit && (
-                <div className="absolute top-4 left-4 bg-amber-500/90 text-neutral-950 px-3 py-1 rounded-full text-[10px] font-extrabold flex items-center gap-1.5 shadow-lg backdrop-blur">
-                  <Scissors className="w-3 h-3" />
-                  <span>
-                    Seamless Blend: Clip #{activeScene.parentClipNumber - 1} ➔ #{activeScene.parentClipNumber}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Video Controls Bar */}
-            <div className="w-full max-w-3xl mt-3 space-y-2 px-2">
-              {/* Scrubber */}
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] font-mono text-neutral-400 w-12 text-right">
-                  {currentTime.toFixed(1)}s
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max={totalDuration}
-                  step="0.1"
-                  value={currentTime}
-                  onChange={(e) => {
-                    setCurrentTime(parseFloat(e.target.value));
-                  }}
-                  className="flex-1 accent-amber-400 h-1.5 bg-neutral-800 rounded-lg cursor-pointer"
-                />
-                <span className="text-[11px] font-mono text-neutral-400 w-12">
-                  {totalDuration.toFixed(1)}s
-                </span>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="p-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-neutral-950 font-bold transition shadow"
-                    title={isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4 ml-0.5" />
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentTime(0);
-                      setIsPlaying(true);
-                    }}
-                    className="p-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 transition border border-neutral-800"
-                    title="Replay from Beginning"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMuted(!isMuted);
-                      videoAudio.setMuted(!isMuted);
-                    }}
-                    className="p-2.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-neutral-300 transition border border-neutral-800"
-                    title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
-                  >
-                    {isMuted ? (
-                      <VolumeX className="w-4 h-4" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 text-amber-400" />
-                    )}
-                  </button>
-
-                  <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-xs text-neutral-300">
-                    <span className="text-[10px] text-neutral-500 uppercase font-mono">
-                      Clip:
-                    </span>
-                    <span className="font-bold text-amber-400">
-                      #{activeScene.parentClipNumber} of {orderedVideos.length}
-                    </span>
-                    <span className="text-neutral-500">•</span>
-                    <span className="truncate max-w-[140px] text-[11px]">
-                      {activeScene.parentTitle}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Single Click Extract & Download */}
-                <button
-                  type="button"
-                  disabled={isExtracting}
-                  onClick={handleExtractAndDownload}
-                  className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-neutral-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition cursor-pointer disabled:opacity-40"
-                >
-                  {isExtracting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{extractStatus || 'Extracting...'}</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      <span>Extract & Download Merged Video</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">
+              Clean Export
+            </span>
           </div>
 
-          {/* Right Sidebar: Timeline Details & Direct Export Status */}
-          <div className="w-full md:w-80 border-l border-neutral-800 bg-neutral-950 p-4 flex flex-col justify-between overflow-y-auto shrink-0">
-            <div className="space-y-4">
-              <div className="border-b border-neutral-800 pb-3">
-                <span className="text-[10px] uppercase font-bold text-neutral-500">
-                  Unified Film Specs
-                </span>
-                <h4 className="text-sm font-extrabold text-white mt-0.5">
-                  Seamless Mergen Master
-                </h4>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-neutral-900 p-2 rounded-lg border border-neutral-800">
-                    <span className="text-[10px] text-neutral-400 block">
-                      Clips Merged
-                    </span>
-                    <span className="font-mono font-bold text-amber-400">
-                      {orderedVideos.length} Clips
-                    </span>
-                  </div>
-                  <div className="bg-neutral-900 p-2 rounded-lg border border-neutral-800">
-                    <span className="text-[10px] text-neutral-400 block">
-                      Total Duration
-                    </span>
-                    <span className="font-mono font-bold text-amber-400">
-                      {totalDuration.toFixed(1)}s
-                    </span>
-                  </div>
+          <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
+            <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-850">
+                  <span className="text-[10px] text-neutral-500 font-mono">Duration</span>
+                  <p className="font-bold text-white">{totalDuration.toFixed(1)}s</p>
+                </div>
+                <div className="p-3 bg-neutral-950 rounded-xl border border-neutral-850">
+                  <span className="text-[10px] text-neutral-500 font-mono">Clips</span>
+                  <p className="font-bold text-amber-400">{orderedVideos.length}</p>
                 </div>
               </div>
 
-              {/* Extraction Progress if running */}
               {isExtracting && (
-                <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-950/30 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
-                    <span>Exporting Batch Video...</span>
+                <div className="p-3 bg-neutral-950 rounded-xl border border-amber-500/30 text-xs font-mono space-y-1">
+                  <div className="flex justify-between text-amber-300 text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> {extractStatus}
+                    </span>
                     <span>{extractProgress}%</span>
                   </div>
-                  <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-emerald-400 transition-all duration-200"
-                      style={{ width: `${extractProgress}%` }}
-                    />
+                  <div className="w-full bg-neutral-800 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-amber-400 h-full" style={{ width: `${extractProgress}%` }} />
                   </div>
-                  <p className="text-[10px] text-neutral-400">
-                    {extractStatus}
-                  </p>
                 </div>
               )}
 
-              {/* Split details recap */}
-              <div>
-                <span className="text-[10px] uppercase font-bold text-neutral-500 block mb-2">
-                  AI Brain Seam Harmonization
-                </span>
-                <div className="space-y-2">
-                  {computedSplits.map((s, idx) => (
-                    <div
-                      key={s.id}
-                      className="text-[11px] p-2 rounded-lg bg-neutral-900 border border-neutral-800 flex items-center justify-between"
-                    >
-                      <span className="text-neutral-300 font-medium">
-                        Split #{idx + 1}
-                      </span>
-                      <span className="text-amber-400 font-mono text-[10px] uppercase">
-                        {s.transitionType}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+              <button
+                type="button"
+                disabled={isExtracting}
+                onClick={handleExtractAndDownload}
+                className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-neutral-950 font-bold text-xs flex items-center justify-center gap-2 shadow"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isExtracting ? 'Rendering...' : 'Download Movie (.webm)'}</span>
+              </button>
 
-            {/* Back to Edit Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const manifest = {
+                    title: `Merged Movie (${orderedVideos.length} clips)`,
+                    aspectRatio: targetAspect,
+                    totalDuration,
+                    clips: orderedVideos.map((v, i) => ({
+                      index: i + 1,
+                      title: v.title,
+                      duration: v.totalDuration,
+                    })),
+                    splits: computedSplits,
+                  };
+                  const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'merged_manifest.json';
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className="w-full py-2.5 rounded-xl bg-neutral-950 hover:bg-neutral-850 border border-neutral-800 text-[11px] text-neutral-300 flex items-center justify-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Download Cutlist (.json)</span>
+              </button>
+            </div>
+          </div>
+
+          <footer className="p-3 px-6 border-t border-neutral-800 bg-neutral-950 flex items-center justify-between">
             <button
               type="button"
               onClick={() => {
-                setIsPlaying(false);
-                setStage('selection');
+                setCurrentStep('preview');
+                setCurrentTime(0);
+                setIsPlaying(true);
               }}
-              className="mt-4 w-full py-2.5 rounded-xl border border-neutral-800 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 text-xs font-medium transition"
+              className="px-4 py-1.5 rounded-lg border border-neutral-700 text-xs text-neutral-300 hover:text-white"
             >
-              ← Adjust Clip Sequence & Splits
+              Back to Preview
             </button>
-          </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-white font-bold text-xs"
+            >
+              Done
+            </button>
+          </footer>
         </div>
       )}
     </div>

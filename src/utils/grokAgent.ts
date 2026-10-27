@@ -12,8 +12,10 @@ import {
   VideoProject,
   VideoScene,
   VisualEffect,
+  BiomeType,
 } from '../types/video';
 import { detectCharacterType } from './characterVoice';
+import { detectBiome } from './videoRenderEngine';
 
 export interface GrokGenerateRequest {
   prompt: string;
@@ -25,6 +27,124 @@ export interface GrokGenerateRequest {
   onProgress?: (stage: 'analyzing' | 'scripting' | 'rendering' | 'ready', percent: number) => void;
 }
 
+/**
+ * Checks if request has sufficient context to generate a video.
+ * Never generates if there is no image, descriptive prompt (< 3 chars), or memory context.
+ */
+export function canTriggerGeneration(
+  prompt: string,
+  images: string[] = [],
+  history: ChatMessage[] = [],
+  parentVideo?: VideoProject,
+  isContinuation?: boolean
+): boolean {
+  if (isContinuation || Boolean(parentVideo)) return true;
+  if (images && images.length > 0) return true;
+
+  const hasGenerateKeyword = /\bGENERATE\b/.test(prompt) || prompt.trim().startsWith('GENERATE');
+  if (!hasGenerateKeyword) return false;
+
+  // Extract clean text beyond the GENERATE keyword
+  const cleanDescription = prompt
+    .replace(/\bGENERATE\b:?/gi, '')
+    .replace(/[^a-zA-Z0-9]/g, ' ')
+    .trim();
+
+  // If user provided at least 3 descriptive characters (e.g. "GENERATE a spaceship")
+  if (cleanDescription.length >= 3) return true;
+
+  // Check if conversation history already has previous video or uploaded images
+  const hasHistoryContext = (history || []).some((m) => {
+    if (m.generatedVideo) return true;
+    if (m.uploadedImages && m.uploadedImages.length > 0) return true;
+    return false;
+  });
+
+  return hasHistoryContext;
+}
+
+export function isGenerateCommand(
+  prompt: string,
+  images: string[] = [],
+  history: ChatMessage[] = [],
+  parentVideo?: VideoProject,
+  isContinuation?: boolean
+): boolean {
+  return canTriggerGeneration(prompt, images, history, parentVideo, isContinuation);
+}
+
+/**
+ * Generates dynamic, context-aware conversational director replies.
+ * Uses chat history memory to remember previous videos, comment on uploaded stills,
+ * and provide directing advice without repeating static canned phrases.
+ */
+export function generateDynamicDirectorReply(
+  prompt: string,
+  images: string[] = [],
+  history: ChatMessage[] = []
+): string {
+  const clean = (prompt || '').trim();
+  const lower = clean.toLowerCase();
+
+  // 1. Look up memory from previous messages
+  const previousVideos = (history || [])
+    .filter((m) => m.generatedVideo)
+    .map((m) => m.generatedVideo as VideoProject);
+  const lastVideo = previousVideos.length > 0 ? previousVideos[previousVideos.length - 1] : undefined;
+
+  // If user typed GENERATE but has no context (no prompt description, no image, no memory)
+  if (/\bGENERATE\b/i.test(prompt) && !canTriggerGeneration(prompt, images, history)) {
+    return "I need a scene concept or reference still before I can direct and generate. Tell me what scene you want to produce (e.g., 'GENERATE: A cybernetic mercenary entering an abandoned hangar in the snow'), or upload your reference photos so I have a visual vision to craft!";
+  }
+
+  // If user uploaded an image and is asking about it
+  if (images.length > 0 && (lower.includes('explain') || lower.includes('look') || lower.includes('image') || lower.includes('photo') || lower.includes('still') || lower.includes('picture') || lower.includes('what do you think'))) {
+    return `Looking at your reference image (${images.length} frame${images.length > 1 ? 's' : ''} uploaded): The composition has strong focal depth and dramatic mood. I can stage this with a slow dolly-push or crane-pan, matching the lighting with anamorphic flares. Whenever you want to direct it into a full sequence, type "GENERATE" along with your scene action!`;
+  }
+
+  // Recall previous video / story continuity
+  if (lastVideo && (lower.includes('last video') || lower.includes('previous') || lower.includes('what did we make') || lower.includes('remember') || lower.includes('continuity') || lower.includes('part 2'))) {
+    return `In our last cut, we produced "${lastVideo.title}" (${lastVideo.scenes?.length || 0} shots, ${lastVideo.totalDuration}s duration) in ${lastVideo.aspectRatio} format. The story left off with "${lastVideo.scenes?.[lastVideo.scenes.length - 1]?.title || 'the climax'}". If you want to direct the continuation, type "GENERATE Part 2: [your next scene description]"!`;
+  }
+
+  // Greetings: dynamic, acknowledging project history
+  if (lower.startsWith('hi') || lower.startsWith('hello') || lower.startsWith('hey') || lower.startsWith('wassup') || lower.startsWith("what's up")) {
+    if (previousVideos.length > 0) {
+      return `Wassup! Director Grok here. We've got ${previousVideos.length} project${previousVideos.length > 1 ? 's' : ''} in the reel, including "${lastVideo?.title}". What scene are we directing next? You can describe a new scene, upload reference stills, or type GENERATE when you're ready to shoot!`;
+    }
+    return `Wassup! I'm your AI Cinema Director Brain. I direct multi-shot films, choreograph camera motion (dolly, steadicam, crane, drone), and cast voice talent. You can brainstorm story concepts with me, upload character stills, or type "GENERATE: [scene description]" when you want to produce!`;
+  }
+
+  // Questions about how it works / who are you
+  if (lower.includes('who are you') || lower.includes('what can you do') || lower.includes('help') || lower.includes('how does this work')) {
+    return `I'm Grok Cinema, your autonomous movie director. Here's how to work with me:
+1. Normal Chat: Brainstorm storylines, ask for cinematography advice, or upload reference stills.
+2. Video Generation: Start your prompt with "GENERATE: [scene description]" (e.g. "GENERATE: Desert convoy ambushed at sunset") to produce multi-shot footage with camera motion, voice narration, and film score.
+3. Stitching: In the Mergen Studio tab, arrange your clips on the timeline and merge them seamlessly!`;
+  }
+
+  // Story ideas / brainstorming request
+  if (lower.includes('idea') || lower.includes('suggest') || lower.includes('pitch') || lower.includes('brainstorm') || lower.includes('what should i make')) {
+    return `Here are 3 cinematic pitches you can direct right now:
+1. "GENERATE: Cyberpunk stealth operative infiltrating a rain-slicked Tokyo neon rooftop" (Anamorphic prime, steady tracking shot)
+2. "GENERATE: Deep space exploration pod discovering an ancient alien monolithic structure in an asteroid belt" (Slow cosmic drift, 24mm wide)
+3. "GENERATE: Medieval knight searching a torchlit gothic crypt for an enchanted crown" (Low-angle hero shot, flickering embers)
+Pick one, or describe your own twist!`;
+  }
+
+  // Cinematography questions
+  if (lower.includes('camera') || lower.includes('lens') || lower.includes('lighting') || lower.includes('dolly') || lower.includes('aspect ratio')) {
+    return `Cinematography recommendation: For epic blockbusters, 16:9 or 2.39:1 widescreen with a 35mm Anamorphic lens gives you rich horizontal flare and shallow depth of field. For mobile/social cinema, 9:16 vertical with tight prime close-ups creates immediate intimacy. Let me know what aesthetic you want for your next sequence!`;
+  }
+
+  // Default intelligent contextual response
+  if (clean.length > 0) {
+    return `Understood on "${clean}". From a director's standpoint, we can build dynamic tension here using alternating wide establishing shots and tight macro inserts. If you want to produce this scene right away, type "GENERATE: ${clean}", or upload reference stills to anchor the visual style!`;
+  }
+
+  return `I'm ready in the director's chair. Upload reference photos, brainstorm scene ideas, or type "GENERATE: [scene description]" to produce!`;
+}
+
 export async function processGrokRequest(
   request: GrokGenerateRequest
 ): Promise<{ replyText: string; video?: VideoProject }> {
@@ -33,22 +153,9 @@ export async function processGrokRequest(
   if (onProgress) onProgress('analyzing', 20);
 
   const detectedCharacter = detectCharacterType(prompt);
+  const isVideoGenerationRequest = canTriggerGeneration(prompt, images, history, parentVideo, isContinuation);
 
-  const isVideoGenerationRequest =
-    images.length > 0 ||
-    isContinuation ||
-    prompt.toLowerCase().includes('video') ||
-    prompt.toLowerCase().includes('film') ||
-    prompt.toLowerCase().includes('movie') ||
-    prompt.toLowerCase().includes('scene') ||
-    prompt.toLowerCase().includes('cinema') ||
-    prompt.toLowerCase().includes('animate') ||
-    prompt.toLowerCase().includes('shot') ||
-    prompt.toLowerCase().includes('clip') ||
-    prompt.toLowerCase().includes('part') ||
-    prompt.toLowerCase().includes('continue');
-
-  // Attempt server-side Gemini 2.5 Flash Director API
+  // Attempt server-side Gemini 3.8 Flash Director API
   try {
     if (onProgress) onProgress('scripting', 45);
     const apiRes = await fetch('/api/grok/direct', {
@@ -65,10 +172,10 @@ export async function processGrokRequest(
 
     if (apiRes.ok) {
       const parsed = await apiRes.json();
-      if (parsed.isVideo && parsed.scenes?.length > 0) {
+      if (parsed.isVideo && parsed.scenes?.length > 0 && isVideoGenerationRequest) {
         if (onProgress) onProgress('rendering', 85);
         const project = buildFilmProjectFromPlan(
-          parsed.filmTitle || prompt.slice(0, 30),
+          parsed.filmTitle || prompt.replace(/^GENERATE:?\s*/i, '').slice(0, 30) || 'Cinematic Cut',
           prompt,
           aspectRatio,
           parsed.scenes,
@@ -93,13 +200,13 @@ export async function processGrokRequest(
     console.warn('Server Gemini call fallback, switching to local cinematic director:', err);
   }
 
-  // Resilient Local Cinematic Film Generator
-  if (onProgress) onProgress('scripting', 60);
-
+  // Resilient Local Generator when video was requested with sufficient context
   if (isVideoGenerationRequest) {
+    if (onProgress) onProgress('scripting', 60);
     if (onProgress) onProgress('rendering', 85);
+    const cleanPrompt = prompt.replace(/^GENERATE:?\s*/i, '').trim();
     const video = generateDeterministicFilmProject(
-      prompt,
+      cleanPrompt || 'Cinematic Film',
       images,
       aspectRatio,
       detectedCharacter,
@@ -108,16 +215,15 @@ export async function processGrokRequest(
     if (onProgress) onProgress('ready', 100);
 
     const reply = parentVideo
-      ? `Part ${video.partNumber}: Generated ${video.scenes.length} continuation shots picking up from ${parentVideo.totalDuration.toFixed(1)}s.`
-      : images.length > 0
-      ? `Sequenced ${video.scenes.length} cinematic shots from your ${images.length} reference stills.`
-      : `Generated ${video.scenes.length} cinematic shots: "${video.title}"`;
+      ? `Part ${video.partNumber}: Generated ${video.scenes.length} continuation shots.`
+      : `Generated ${video.scenes.length} cinematic shots for "${video.title}".`;
 
     return { replyText: reply, video };
   }
 
+  // Conversational reply with full memory and smart feedback
   return {
-    replyText: `Ready. Upload reference stills or describe a scene to direct. Character voice profiles: Ghoul, Monster, Female Warrior, Male Hero, Cyborg.`,
+    replyText: generateDynamicDirectorReply(prompt, images, history),
   };
 }
 
@@ -137,6 +243,7 @@ function buildFilmProjectFromPlan(
     speakerName?: string;
     characterType?: CharacterType;
     sfx?: VideoScene['sfxAtStart'];
+    biome?: BiomeType;
   }>,
   images: string[],
   characterType: CharacterType,
@@ -144,6 +251,7 @@ function buildFilmProjectFromPlan(
 ): VideoProject {
   const nextPartNumber = parentVideo ? (parentVideo.partNumber || 1) + 1 : 1;
   const projectId = `film_${Date.now().toString(36)}`;
+  const defaultBiome = detectBiome(prompt);
 
   const scenes: VideoScene[] = scenesPlan.map((s, idx) => {
     const assignedImage = images.length > 0 ? images[idx % images.length] : undefined;
@@ -167,6 +275,7 @@ function buildFilmProjectFromPlan(
       cinematicSubtitle: s.subtitle || '',
       narrationText: s.subtitle || '',
       sfxAtStart: s.sfx || (idx === 0 ? 'cinematic-boom' : 'whoosh'),
+      biome: s.biome || defaultBiome,
     };
   });
 
@@ -195,6 +304,7 @@ function generateDeterministicFilmProject(
   parentVideo?: VideoProject
 ): VideoProject {
   const nextPartNumber = parentVideo ? (parentVideo.partNumber || 1) + 1 : 1;
+  const biome = detectBiome(prompt);
 
   const motions: MotionType[] = [
     'dolly-push',
@@ -230,6 +340,38 @@ function generateDeterministicFilmProject(
     `Final descent. Every protocol has been overwritten.`,
   ];
 
+  // Tailor lighting per biome
+  const getBiomeLighting = (idx: number, b: BiomeType) => {
+    switch (b) {
+      case 'space':
+        return idx === 0 ? 'Starlight rim glow with violet nebula wash' : 'Solar reflection on spacecraft hull';
+      case 'desert':
+        return idx === 0 ? 'Blazing golden-hour backlight with heat shimmer' : 'Terracotta dune shadow gradient';
+      case 'jungle':
+        return idx === 0 ? 'Emerald god-rays piercing dense canopy' : 'Dappled foliage shadows with bioluminescent accents';
+      case 'dungeon':
+        return idx === 0 ? 'Flickering torchlight against ancient damp stone' : 'Low-angle amber brazier glow';
+      case 'ocean':
+        return idx === 0 ? 'Deep oceanic aqua caustics reflecting from above' : 'Bioluminescent deep sea plankton radiance';
+      case 'noir':
+        return idx === 0 ? 'Venetian blind chiaroscuro shadow slants' : 'Tungsten spotlight in heavy darkness';
+      case 'action':
+        return idx === 0 ? 'High-speed motion blur and lens flare' : 'Asphalt headlight illumination';
+      case 'apocalypse':
+        return idx === 0 ? 'Smoldering haze and fallout particulate glow' : 'Rubble silhouette against burnt sky';
+      case 'cyberpunk':
+      default:
+        return idx === 0 ? 'Neon cyan & magenta street illumination' : 'Sodium vapor backlighting with wet asphalt bounce';
+    }
+  };
+
+  const getBiomeLens = (idx: number, b: BiomeType) => {
+    if (b === 'space') return idx === 0 ? '24mm Ultra-Wide Anamorphic T1.5' : '85mm Cosmic Prime';
+    if (b === 'ocean') return idx === 0 ? '16mm Fish-Eye Caustic T2.0' : '50mm Macro Prime';
+    if (b === 'noir') return idx === 0 ? '35mm Vintage Monochrome Prime' : '50mm High-Contrast T1.4';
+    return idx === 0 ? '24mm Ultra-Wide T/1.5' : '50mm Anamorphic Prime';
+  };
+
   const scenes: VideoScene[] = Array.from({ length: sceneCount }, (_, idx) => {
     const assignedImage = images.length > 0 ? images[idx % images.length] : undefined;
     const shotSubtitle = parentVideo
@@ -240,7 +382,7 @@ function generateDeterministicFilmProject(
 
     return {
       id: `shot_${nextPartNumber}_${idx + 1}`,
-      title: `Shot ${idx + 1}: ${shotTypes[(idx + nextPartNumber) % shotTypes.length]}`,
+      title: `Shot ${idx + 1}: ${shotTypes[(idx + nextPartNumber) % shotTypes.length]} (${biome.toUpperCase()})`,
       duration: 4.0,
       imageSrc: assignedImage,
       backgroundColor: idx % 2 === 0 ? '#0b0f19' : '#030712',
@@ -248,14 +390,15 @@ function generateDeterministicFilmProject(
       speakerName: charLabel,
       shotDirection: {
         shotType: shotTypes[(idx + nextPartNumber) % shotTypes.length],
-        lighting: idx === 0 ? 'Atmospheric twilight backlight' : 'High-contrast edge lighting',
-        lensDescription: idx === 0 ? '24mm Ultra-Wide T/1.5' : '50mm Anamorphic Prime',
+        lighting: getBiomeLighting(idx, biome),
+        lensDescription: getBiomeLens(idx, biome),
       },
       motionType: motions[(idx + nextPartNumber) % motions.length],
       effects: fxCombos[idx % fxCombos.length],
       cinematicSubtitle: shotSubtitle,
       narrationText: shotSubtitle,
       sfxAtStart: idx === 0 ? 'cinematic-boom' : 'whoosh',
+      biome,
     };
   });
 
@@ -264,7 +407,7 @@ function generateDeterministicFilmProject(
     ? `${parentVideo.title.replace(/: Part \d+$/, '')}: Part ${nextPartNumber}`
     : prompt
     ? prompt.slice(0, 32)
-    : 'Untitled Cinema Project';
+    : `${biome.charAt(0).toUpperCase() + biome.slice(1)} Sequence`;
 
   return {
     id: `film_${Date.now()}`,

@@ -29,6 +29,7 @@ interface GrokChatAreaProps {
     aspectRatio: AspectRatio
   ) => Promise<void>;
   isProcessing: boolean;
+  isGeneratingVideo?: boolean;
   onOpenMobileSidebar?: () => void;
   onContinueScene?: (project: VideoProject) => void;
   onOpenMergen?: () => void;
@@ -39,6 +40,7 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
   messages,
   onSendMessage,
   isProcessing,
+  isGeneratingVideo = false,
   onOpenMobileSidebar,
   onContinueScene,
   onOpenMergen,
@@ -82,8 +84,8 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
     const promptToSend =
       inputText.trim() ||
       (uploadedImages.length > 0
-        ? `Direct cinematic movie from these ${uploadedImages.length} uploaded reference images with camera movements, character voices, and clean subtitles.`
-        : 'Generate cinematic movie sequence.');
+        ? `GENERATE: Direct cinematic sequence from these ${uploadedImages.length} uploaded reference stills with camera motion, voice narration, and clean subtitles.`
+        : 'Hello');
 
     const imagesToSend = [...uploadedImages];
     setInputText('');
@@ -161,8 +163,8 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
                 <span>2-AI Hand-in-Hand Architecture:</span>
               </div>
               <p className="text-[11px] text-neutral-400 leading-relaxed">
-                <strong>1. Director & Memory AI (Gemini 2.5 Flash):</strong> Remembers your full storyline, character voices (ghoul, monster, female warrior, male hero), and reference stills across turns.<br />
-                <strong>2. Video Visual Engine (Pixazo AI / Canvas Pipeline):</strong> Generates the visual frame movement, camera paths, anamorphic flares, and extracts real MP4/WebM video without watermarks.
+                <strong>1. Director AI (Gemini 3.8 Flash):</strong> Storyline memory and voice scripting.<br />
+                <strong>2. Video Engine:</strong> Dynamic camera choreography and clean export.
               </p>
             </div>
             <button
@@ -179,94 +181,53 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
       {/* Chat Messages Feed */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-6 min-w-0">
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center max-w-xl mx-auto p-4">
-            <div className="w-14 h-14 rounded-2xl bg-neutral-900 border border-neutral-700 text-white flex items-center justify-center font-black text-2xl shadow-2xl mb-4">
+          <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto p-4">
+            <div className="w-12 h-12 rounded-2xl bg-neutral-900 border border-neutral-700 text-white flex items-center justify-center font-black text-xl shadow-xl mb-3">
               G
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-2">
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-1">
               GROK CINEMA
             </h1>
-            <p className="text-xs sm:text-sm text-neutral-400 mb-6 leading-relaxed">
-              AI Film Production Studio. Direct cinematic scenes, orchestrate shot lists,
-              upload reference stills, and generate real downloadable movies with clean subtitles, character voice acting, and zero watermarks.
+            <p className="text-xs text-neutral-400 mb-6 max-w-sm">
+              Chat to brainstorm or explain stills. Start with <strong className="text-amber-400">GENERATE</strong> to produce a movie.
             </p>
 
-            {/* Quick Starter Chips */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
+            {/* Concise Starter Chips */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full text-left">
               <button
                 type="button"
-                onClick={() =>
-                  handleQuickPrompt(
-                    'Direct a 4-shot cinematic sci-fi sequence with wide establishing drone shots, anamorphic flares, and orchestral sub-bass',
-                    '16:9'
-                  )
-                }
-                className="p-3 rounded-xl bg-neutral-950/80 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-600 text-left transition group"
+                onClick={() => handleQuickPrompt('GENERATE a 4-shot sci-fi sequence with anamorphic flares')}
+                className="p-3 rounded-xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-xs font-semibold text-white transition flex items-center gap-2"
               >
-                <div className="flex items-center gap-2 font-semibold text-white text-xs mb-1">
-                  <Film className="w-4 h-4 text-neutral-300 group-hover:text-white" />
-                  <span>Cinematic Sci-Fi Sequence</span>
-                </div>
-                <p className="text-[11px] text-neutral-400">
-                  Wide drone establishing, anamorphic flares, and orchestral sub-bass.
-                </p>
+                <Film className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>GENERATE Sci-Fi Sequence</span>
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  handleQuickPrompt(
-                    'Cyberpunk female warrior standing on a neon-lit futuristic rooftop in Tokyo during heavy rain, holographic billboards reflecting in puddles, cinematic slow motion.',
-                    '16:9'
-                  )
-                }
-                className="p-3 rounded-xl bg-neutral-950/80 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-600 text-left transition group"
+                onClick={() => handleQuickPrompt('GENERATE cyberpunk warrior in neon rain')}
+                className="p-3 rounded-xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-xs font-semibold text-white transition flex items-center gap-2"
               >
-                <div className="flex items-center gap-2 font-semibold text-white text-xs mb-1">
-                  <Sparkles className="w-4 h-4 text-neutral-300 group-hover:text-white" />
-                  <span>Cyberpunk Female Warrior</span>
-                </div>
-                <p className="text-[11px] text-neutral-400">
-                  Neon rain, reflective puddles, and female protagonist voice acting.
-                </p>
+                <Sparkles className="w-4 h-4 text-sky-400 shrink-0" />
+                <span>GENERATE Cyberpunk Warrior</span>
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  handleQuickPrompt(
-                    'Ancient crypt where a shadow ghoul awakens from sarcophagus, low-angle creeping camera, green mist, raspy ghoul whispers.',
-                    '16:9'
-                  )
-                }
-                className="p-3 rounded-xl bg-neutral-950/80 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-600 text-left transition group"
+                onClick={() => handleQuickPrompt('Wassup! What kind of scenes can we direct together?')}
+                className="p-3 rounded-xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-xs font-semibold text-neutral-300 hover:text-white transition flex items-center gap-2"
               >
-                <div className="flex items-center gap-2 font-semibold text-white text-xs mb-1">
-                  <Wand2 className="w-4 h-4 text-neutral-300 group-hover:text-white" />
-                  <span>Ghoul Awakening in Crypt</span>
-                </div>
-                <p className="text-[11px] text-neutral-400">
-                  Subterranean mist, creeping lens, and raspy ghoul voice acting.
-                </p>
+                <Wand2 className="w-4 h-4 text-purple-400 shrink-0" />
+                <span>Chat with Cinema Director</span>
               </button>
 
               <button
                 type="button"
-                onClick={() =>
-                  handleQuickPrompt(
-                    'Create a 9:16 vertical cinematic reel with steadicam tracking shots, moody lighting, and shallow depth of field',
-                    '9:16'
-                  )
-                }
-                className="p-3 rounded-xl bg-neutral-950/80 hover:bg-neutral-850 border border-neutral-800 hover:border-neutral-600 text-left transition group"
+                onClick={() => handleQuickPrompt('GENERATE 9:16 vertical phone reel', '9:16')}
+                className="p-3 rounded-xl bg-neutral-900 hover:bg-neutral-850 border border-neutral-800 text-xs font-semibold text-white transition flex items-center gap-2"
               >
-                <div className="flex items-center gap-2 font-semibold text-white text-xs mb-1">
-                  <Layers className="w-4 h-4 text-neutral-300 group-hover:text-white" />
-                  <span>Vertical Phone Reel (9:16)</span>
-                </div>
-                <p className="text-[11px] text-neutral-400">
-                  Steadicam tracking, shallow depth of field, and phone vertical format.
-                </p>
+                <Layers className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>GENERATE 9:16 Vertical Reel</span>
               </button>
             </div>
           </div>
@@ -333,16 +294,25 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
           ))
         )}
 
-        {/* Video Generation Progress Card matching user's ChatGPT/Grok screenshot */}
+        {/* Video Generation Progress Card vs Normal Chat Thinking */}
         {isProcessing && (
           <div className="flex flex-col items-start w-full max-w-md animate-fadeIn">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-5 h-5 rounded-md bg-neutral-900 border border-neutral-700 text-white flex items-center justify-center font-bold text-[10px]">
-                G
+            {isGeneratingVideo ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-5 h-5 rounded-md bg-neutral-900 border border-neutral-700 text-white flex items-center justify-center font-bold text-[10px]">
+                    G
+                  </div>
+                  <span className="font-bold text-xs text-white">Grok Cinema</span>
+                </div>
+                <CreatingVideoCard stage="Rendering film" />
+              </>
+            ) : (
+              <div className="flex items-center gap-2.5 px-4 py-3 bg-neutral-900 border border-neutral-800 rounded-2xl text-xs text-neutral-300">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                <span>Grok Cinema is thinking...</span>
               </div>
-              <span className="font-bold text-xs text-white">Grok Cinema</span>
-            </div>
-            <CreatingVideoCard stage="Creating video" />
+            )}
           </div>
         )}
 
@@ -354,17 +324,17 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto space-y-2">
           {/* Uploaded Images Preview Strip */}
           {uploadedImages.length > 0 && (
-            <div className="p-2.5 bg-neutral-900 rounded-xl border border-neutral-800 flex items-center justify-between">
+            <div className="p-2 bg-neutral-900 rounded-xl border border-neutral-800 flex items-center justify-between">
               <div className="flex items-center gap-2 overflow-x-auto py-1">
                 <span className="text-[10px] font-mono text-neutral-300 font-bold px-2 py-0.5 rounded bg-neutral-800 shrink-0">
-                  {uploadedImages.length} Stills Attached
+                  {uploadedImages.length} Stills
                 </span>
                 {uploadedImages.map((src, idx) => (
                   <div key={`thumb-${idx}`} className="relative shrink-0 group">
                     <img
                       src={src}
                       alt="upload thumbnail"
-                      className="w-12 h-12 object-cover rounded-lg border border-neutral-700"
+                      className="w-10 h-10 object-cover rounded-lg border border-neutral-700"
                     />
                     <button
                       type="button"
@@ -381,7 +351,7 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
                 onClick={() => setUploadedImages([])}
                 className="text-[10px] text-neutral-400 hover:text-rose-400 font-medium px-2 shrink-0"
               >
-                Clear All
+                Clear
               </button>
             </div>
           )}
@@ -403,7 +373,7 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               className="p-2.5 rounded-xl bg-neutral-800 hover:bg-neutral-750 text-neutral-300 hover:text-white transition shrink-0"
-              title="Upload reference stills or storyboard frames (unlimited)"
+              title="Upload reference stills"
             >
               <Upload className="w-5 h-5 text-neutral-300" />
             </button>
@@ -421,8 +391,8 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
               }}
               placeholder={
                 uploadedImages.length > 0
-                  ? `Direct film scene with ${uploadedImages.length} reference stills (e.g. "Anamorphic dolly shot, dusk...")`
-                  : 'Ask Grok Cinema or prompt: "Opening shot of neon rain-slicked boulevard, 35mm anamorphic, dolly push..."'
+                  ? `Type GENERATE with ${uploadedImages.length} stills attached, or ask a question...`
+                  : 'Chat with director, or type GENERATE: [scene prompt]...'
               }
               className="flex-1 bg-transparent border-0 text-white text-xs sm:text-sm focus:outline-none resize-none py-2 px-1 max-h-32"
             />
@@ -432,7 +402,7 @@ export const GrokChatArea: React.FC<GrokChatAreaProps> = ({
               type="submit"
               disabled={isProcessing || (!inputText.trim() && uploadedImages.length === 0)}
               className="p-2.5 rounded-xl bg-white hover:bg-neutral-200 disabled:opacity-30 text-black font-bold transition active:scale-95 shrink-0 shadow-lg shadow-white/10"
-              title="Generate Video / Direct Scene"
+              title="Send message"
             >
               <Send className="w-4 h-4" />
             </button>

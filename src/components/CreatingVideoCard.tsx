@@ -11,61 +11,69 @@ interface CreatingVideoCardProps {
 }
 
 export const CreatingVideoCard: React.FC<CreatingVideoCardProps> = ({
-  stage = 'Creating video',
+  stage = 'Rendering movie',
   targetPercent,
 }) => {
-  const [percent, setPercent] = useState<number>(12);
+  const [percent, setPercent] = useState<number>(18);
+  const [subStatus, setSubStatus] = useState<string>('Scripting scene...');
 
-  // Smoothly increment progress percent to match user screenshot
   useEffect(() => {
     const timer = setInterval(() => {
       setPercent((prev) => {
         if (targetPercent !== undefined) {
           if (prev < targetPercent) return prev + 1;
-          return prev;
+          return targetPercent;
         }
-        if (prev >= 96) return 96;
-        const jump = Math.floor(Math.random() * 4) + 1;
-        return Math.min(96, prev + jump);
+        if (prev < 40) {
+          setSubStatus('Scripting camera shots...');
+          return prev + 3;
+        } else if (prev < 75) {
+          setSubStatus('Synthesizing character voice & audio...');
+          return prev + 2;
+        } else if (prev < 95) {
+          setSubStatus('Rendering visual frames...');
+          return prev + 1;
+        } else {
+          setSubStatus('Finalizing film clip...');
+          return Math.min(99, prev + 1);
+        }
       });
     }, 180);
 
     return () => clearInterval(timer);
   }, [targetPercent]);
 
-  // Dot matrix grid: 8 rows by 14 cols
-  const rows = 7;
+  // Dot matrix grid: 7 rows by 12 cols
+  const rows = 6;
   const cols = 12;
 
   return (
-    <div className="w-full max-w-sm sm:max-w-md rounded-3xl bg-neutral-900/90 border border-neutral-800 p-5 shadow-2xl flex flex-col justify-between select-none relative overflow-hidden backdrop-blur-md transition-all">
+    <div className="w-full max-w-sm sm:max-w-md rounded-2xl bg-neutral-900 border border-neutral-800 p-4 shadow-xl flex flex-col justify-between select-none">
       {/* Top Header */}
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-sm font-medium text-neutral-300 tracking-tight">
-          {stage}...
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold text-white tracking-tight flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          {stage}
+        </span>
+        <span className="text-[10px] font-mono text-amber-400 font-bold">
+          {percent}%
         </span>
       </div>
 
-      {/* Animated Dot Matrix Grid inspired by screenshot */}
-      <div className="py-6 flex flex-col items-center justify-center gap-2.5">
+      {/* Animated Dot Matrix Grid */}
+      <div className="py-4 flex flex-col items-center justify-center gap-2">
         {Array.from({ length: rows }).map((_, rIdx) => (
-          <div key={`row-${rIdx}`} className="flex items-center gap-3 sm:gap-3.5">
+          <div key={`row-${rIdx}`} className="flex items-center gap-3">
             {Array.from({ length: cols }).map((_, cIdx) => {
-              // Diagonal wave pattern
-              const wave = (rIdx + cIdx) % 6;
-              const isAccent = (rIdx * cols + cIdx + Math.floor(percent / 8)) % 7 === 0;
+              const isAccent = (rIdx * cols + cIdx + Math.floor(percent / 7)) % 6 === 0;
               return (
                 <span
                   key={`dot-${rIdx}-${cIdx}`}
-                  className={`w-1 h-1 rounded-full transition-all duration-500 ${
+                  className={`w-1 h-1 rounded-full transition-all duration-300 ${
                     isAccent
-                      ? 'bg-neutral-300 scale-125 opacity-90'
-                      : 'bg-neutral-600/50 opacity-40'
+                      ? 'bg-amber-400 scale-125 opacity-90'
+                      : 'bg-neutral-700/50 opacity-40'
                   }`}
-                  style={{
-                    animation: `pulse 2.4s ease-in-out infinite`,
-                    animationDelay: `${wave * 120}ms`,
-                  }}
                 />
               );
             })}
@@ -73,14 +81,10 @@ export const CreatingVideoCard: React.FC<CreatingVideoCardProps> = ({
         ))}
       </div>
 
-      {/* Bottom Percentage Badge matching screenshot */}
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-[11px] text-neutral-500 font-mono">
-          Zero-watermark render
-        </span>
-        <div className="px-3 py-1 rounded-full bg-neutral-100 text-neutral-950 font-bold text-xs shadow-sm">
-          {percent}%
-        </div>
+      {/* Bottom Status */}
+      <div className="flex items-center justify-between pt-2 border-t border-neutral-800/80 text-[10px] text-neutral-400 font-mono">
+        <span>{subStatus}</span>
+        <span className="text-emerald-400">Zero Watermark</span>
       </div>
     </div>
   );

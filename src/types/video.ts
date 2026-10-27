@@ -66,6 +66,17 @@ export interface ShotDirection {
   lensDescription: string;
 }
 
+export type BiomeType =
+  | 'cyberpunk'
+  | 'space'
+  | 'desert'
+  | 'jungle'
+  | 'dungeon'
+  | 'ocean'
+  | 'noir'
+  | 'action'
+  | 'apocalypse';
+
 export interface VideoScene {
   id: string;
   title: string;
@@ -80,6 +91,7 @@ export interface VideoScene {
   characterType?: CharacterType;
   speakerName?: string;
   sfxAtStart?: 'cinematic-boom' | 'whoosh' | 'sub-drop' | 'shutter' | 'none';
+  biome?: BiomeType;
 }
 
 export interface VideoProject {

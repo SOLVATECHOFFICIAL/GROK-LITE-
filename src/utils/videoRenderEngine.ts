@@ -5,6 +5,7 @@
 
 import {
   AspectRatio,
+  BiomeType,
   CharacterType,
   MergeTransitionType,
   MotionType,
@@ -141,108 +142,366 @@ export function drawCinematicSubtitle(
 /**
  * Renders animated atmospheric environment (skyline, sweeping searchlights, rain streaks, volumetric fog).
  */
+
+
+export function detectBiome(text: string): BiomeType {
+  const lower = (text || '').toLowerCase();
+  if (/\b(space|star|galaxy|nebula|orbit|planet|spaceship|cosmos|alien|astronaut|void)\b/.test(lower)) {
+    return 'space';
+  }
+  if (/\b(desert|dune|sand|sahara|pyramid|arid|oasis|canyon|wasteland|mars)\b/.test(lower)) {
+    return 'desert';
+  }
+  if (/\b(jungle|forest|dinosaur|nature|trees|canopy|rainforest|prehistoric|foliage|woods)\b/.test(lower)) {
+    return 'jungle';
+  }
+  if (/\b(dungeon|castle|medieval|knight|gothic|throne|dragon|torch|crypt|stone|fortress)\b/.test(lower)) {
+    return 'dungeon';
+  }
+  if (/\b(ocean|water|sea|underwater|submarine|coral|marine|deep|atlantis|wave)\b/.test(lower)) {
+    return 'ocean';
+  }
+  if (/\b(noir|detective|monochrome|vintage|shadow|smoke|trenchcoat|1940|alleyway)\b/.test(lower)) {
+    return 'noir';
+  }
+  if (/\b(car|chase|highway|race|speed|vehicle|drift|asphalt|pursuit|motorcycle)\b/.test(lower)) {
+    return 'action';
+  }
+  if (/\b(apocalypse|ruin|fallout|destroyed|smoldering|wasteland|rubble|decay)\b/.test(lower)) {
+    return 'apocalypse';
+  }
+  return 'cyberpunk';
+}
+
+/**
+ * Renders animated atmospheric environment.
+ * When isImageOverlay is true, NEVER covers the user's uploaded image with opaque shapes!
+ * When isImageOverlay is false, renders the distinct procedural biome.
+ */
 export function renderCinematicEnvironment(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   t: number,
-  characterType: CharacterType = 'narrator'
+  characterType: CharacterType = 'narrator',
+  biome: BiomeType = 'cyberpunk',
+  isImageOverlay: boolean = false
 ) {
   ctx.save();
 
-  // Dynamic sky gradient based on character
-  const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-  if (characterType === 'ghoul') {
-    skyGrad.addColorStop(0, '#0c0714');
-    skyGrad.addColorStop(0.5, '#050209');
-    skyGrad.addColorStop(1, '#020104');
-  } else if (characterType === 'monster') {
-    skyGrad.addColorStop(0, '#160806');
-    skyGrad.addColorStop(0.5, '#0a0302');
-    skyGrad.addColorStop(1, '#040101');
-  } else if (characterType === 'female') {
-    skyGrad.addColorStop(0, '#071626');
-    skyGrad.addColorStop(0.5, '#030b14');
-    skyGrad.addColorStop(1, '#010408');
-  } else {
-    skyGrad.addColorStop(0, '#090d16');
-    skyGrad.addColorStop(0.5, '#03060d');
-    skyGrad.addColorStop(1, '#010206');
+  // If rendering over an uploaded image, ONLY apply delicate cinematic air particles
+  if (isImageOverlay) {
+    const particleCount = 20;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    for (let i = 0; i < particleCount; i++) {
+      const px = (i * 73 + t * 40) % w;
+      const py = (i * 97 + Math.sin(t + i) * 20) % h;
+      const pSize = (i % 3) + 1;
+      ctx.beginPath();
+      ctx.arc(px, py, pSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    return;
   }
-  ctx.fillStyle = skyGrad;
-  ctx.fillRect(0, 0, w, h);
 
-  // Distant City Skyline Silhouettes with parallax
-  const buildingCount = 12;
-  const baseY = h * 0.75;
-  ctx.fillStyle = 'rgba(2, 6, 14, 0.9)';
-  for (let b = 0; b < buildingCount; b++) {
-    const bw = w / (buildingCount * 0.9);
-    const bx = b * (bw * 0.95);
-    const bh = ((Math.sin(b * 3.7) * 0.5 + 0.5) * 0.35 + 0.15) * h;
-    ctx.fillRect(bx, baseY - bh, bw, bh + h * 0.3);
+  // --- Multi-Biome Procedural Environments ---
 
-    // Glowing windows
-    const windowCols = 4;
-    const windowRows = 8;
-    for (let r = 0; r < windowRows; r++) {
-      for (let c = 0; c < windowCols; c++) {
-        if ((b + r + c) % 3 === 0) {
-          ctx.fillStyle =
-            (b + r) % 2 === 0
-              ? 'rgba(56, 189, 248, 0.45)'
-              : 'rgba(251, 191, 36, 0.35)';
-          ctx.fillRect(
-            bx + 8 + c * (bw / 5),
-            baseY - bh + 12 + r * 14,
-            4,
-            6
-          );
-        }
+  if (biome === 'space') {
+    // 1. Cosmic Void Sky
+    const skyGrad = ctx.createRadialGradient(w * 0.5, h * 0.4, 40, w * 0.5, h * 0.5, w * 0.85);
+    skyGrad.addColorStop(0, '#1e1b4b');
+    skyGrad.addColorStop(0.4, '#0f0a2a');
+    skyGrad.addColorStop(1, '#020108');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Cosmic Nebula Clouds (glowing purple/cyan)
+    const nebGrad = ctx.createRadialGradient(w * 0.7, h * 0.35, 10, w * 0.7, h * 0.35, 320);
+    nebGrad.addColorStop(0, 'rgba(168, 85, 247, 0.35)');
+    nebGrad.addColorStop(0.5, 'rgba(56, 189, 248, 0.18)');
+    nebGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = nebGrad;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.7, h * 0.35, 380, 220, Math.sin(t * 0.2) * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Twinkling Starfield
+    const starCount = 80;
+    for (let s = 0; s < starCount; s++) {
+      const sx = (s * 83) % w;
+      const sy = (s * 137) % h;
+      const blink = Math.sin(t * 3 + s * 1.7) * 0.4 + 0.6;
+      ctx.fillStyle = s % 4 === 0 ? `rgba(186, 230, 253, ${blink})` : `rgba(255, 255, 255, ${blink * 0.75})`;
+      ctx.fillRect(sx, sy, s % 5 === 0 ? 2.5 : 1.5, s % 5 === 0 ? 2.5 : 1.5);
+    }
+
+    // 4. Distant Planet with Rings
+    const planetX = w * 0.25;
+    const planetY = h * 0.3;
+    const planetGrad = ctx.createLinearGradient(planetX - 40, planetY - 40, planetX + 40, planetY + 40);
+    planetGrad.addColorStop(0, '#f59e0b');
+    planetGrad.addColorStop(1, '#78350f');
+    ctx.fillStyle = planetGrad;
+    ctx.beginPath();
+    ctx.arc(planetX, planetY, 36, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Planet ring
+    ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(planetX, planetY, 65, 14, -0.4, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (biome === 'desert') {
+    // 1. Warm Golden Hour / Blazing Dune Horizon
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    skyGrad.addColorStop(0, '#fdba74');
+    skyGrad.addColorStop(0.4, '#ea580c');
+    skyGrad.addColorStop(0.7, '#7c2d12');
+    skyGrad.addColorStop(1, '#451a03');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Blazing Sun
+    const sunGrad = ctx.createRadialGradient(w * 0.65, h * 0.35, 10, w * 0.65, h * 0.35, 120);
+    sunGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+    sunGrad.addColorStop(0.3, 'rgba(254, 240, 138, 0.6)');
+    sunGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath();
+    ctx.arc(w * 0.65, h * 0.35, 120, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Sand Dunes (3 parallax layers)
+    const duneColors = ['#9a3412', '#7c2d12', '#431407'];
+    duneColors.forEach((color, dIdx) => {
+      const baseY = h * (0.6 + dIdx * 0.12);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, baseY);
+      ctx.bezierCurveTo(w * 0.3, baseY - 50, w * 0.7, baseY + 40, w, baseY - 20);
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // 4. Drifting Sand / Heat Shimmer
+    ctx.strokeStyle = 'rgba(254, 215, 170, 0.25)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 30; i++) {
+      const dx = (i * 59 + t * 200) % w;
+      const dy = (i * 37 + Math.sin(t * 3 + i) * 15) % h;
+      ctx.beginPath();
+      ctx.moveTo(dx, dy);
+      ctx.lineTo(dx + 18, dy - 2);
+      ctx.stroke();
+    }
+  } else if (biome === 'jungle') {
+    // 1. Deep Mist Emerald Canopy
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    skyGrad.addColorStop(0, '#064e3b');
+    skyGrad.addColorStop(0.5, '#022c22');
+    skyGrad.addColorStop(1, '#021812');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Volumetric God-Rays piercing canopy
+    const rayGrad = ctx.createLinearGradient(w * 0.3, 0, w * 0.6, h);
+    rayGrad.addColorStop(0, 'rgba(167, 243, 208, 0.25)');
+    rayGrad.addColorStop(0.7, 'rgba(52, 211, 153, 0.08)');
+    rayGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = rayGrad;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.2, 0);
+    ctx.lineTo(w * 0.45, 0);
+    ctx.lineTo(w * 0.75, h);
+    ctx.lineTo(w * 0.4, h);
+    ctx.closePath();
+    ctx.fill();
+
+    // 3. Ancient Canopy Tree Silhouettes
+    ctx.fillStyle = '#01150f';
+    for (let tr = 0; tr < 8; tr++) {
+      const tx = tr * (w / 7);
+      const th = (0.5 + Math.sin(tr * 2) * 0.2) * h;
+      ctx.beginPath();
+      ctx.ellipse(tx, h - th, 110, 80, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 4. Bioluminescent Spores
+    for (let s = 0; s < 25; s++) {
+      const sx = (s * 47 + Math.sin(t + s) * 20) % w;
+      const sy = (s * 89 - t * 30 + h) % h;
+      ctx.fillStyle = 'rgba(52, 211, 153, 0.7)';
+      ctx.shadowColor = '#34d399';
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (biome === 'dungeon') {
+    // 1. Dark Crypt / Stone Gothic Vault
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    skyGrad.addColorStop(0, '#1c1917');
+    skyGrad.addColorStop(0.6, '#0c0a09');
+    skyGrad.addColorStop(1, '#050404');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Gothic Stone Arches
+    ctx.fillStyle = '#0a0908';
+    const archCount = 5;
+    for (let a = 0; a < archCount; a++) {
+      const ax = a * (w / 4);
+      ctx.beginPath();
+      ctx.moveTo(ax - 20, h);
+      ctx.lineTo(ax - 20, h * 0.35);
+      ctx.quadraticCurveTo(ax + 40, h * 0.2, ax + 100, h * 0.35);
+      ctx.lineTo(ax + 100, h);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 3. Flickering Torchlight Flame & Glow
+    const torchX = w * 0.8;
+    const torchY = h * 0.55;
+    const flicker = Math.sin(t * 15) * 6;
+    const torchGrad = ctx.createRadialGradient(torchX, torchY, 5, torchX, torchY, 140 + flicker);
+    torchGrad.addColorStop(0, 'rgba(251, 146, 60, 0.7)');
+    torchGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.3)');
+    torchGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = torchGrad;
+    ctx.beginPath();
+    ctx.arc(torchX, torchY, 140 + flicker, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rising Embers
+    for (let e = 0; e < 20; e++) {
+      const ex = torchX + Math.sin(t * 4 + e) * 25;
+      const ey = torchY - ((e * 15 + t * 80) % 180);
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.8)';
+      ctx.fillRect(ex, ey, 2, 2);
+    }
+  } else if (biome === 'ocean') {
+    // 1. Underwater Turquoise Depths
+    const oceanGrad = ctx.createLinearGradient(0, 0, 0, h);
+    oceanGrad.addColorStop(0, '#0284c7');
+    oceanGrad.addColorStop(0.4, '#0369a1');
+    oceanGrad.addColorStop(1, '#082f49');
+    ctx.fillStyle = oceanGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Shimmering Sunlight Caustics
+    ctx.strokeStyle = 'rgba(224, 242, 254, 0.2)';
+    ctx.lineWidth = 2;
+    for (let c = 0; c < 12; c++) {
+      const cx = (c * (w / 11) + Math.sin(t * 2 + c) * 30);
+      ctx.beginPath();
+      ctx.moveTo(cx, 0);
+      ctx.quadraticCurveTo(cx + 40, h * 0.5, cx - 20, h);
+      ctx.stroke();
+    }
+
+    // 3. Rising Air Bubbles
+    for (let b = 0; b < 30; b++) {
+      const bx = (b * 41 + Math.sin(t * 2 + b) * 15) % w;
+      const by = (h - ((b * 53 + t * 90) % h));
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(bx, by, (b % 4) + 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  } else if (biome === 'noir') {
+    // 1. Monochrome Grayscale Gradient
+    const noirGrad = ctx.createLinearGradient(0, 0, 0, h);
+    noirGrad.addColorStop(0, '#262626');
+    noirGrad.addColorStop(0.6, '#0f0f0f');
+    noirGrad.addColorStop(1, '#050505');
+    ctx.fillStyle = noirGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Venetian Blind Shadows
+    const slatCount = 14;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+    for (let s = 0; s < slatCount; s++) {
+      const slatY = s * (h / slatCount);
+      ctx.fillRect(0, slatY, w, 16);
+    }
+
+    // 3. Rising Cigarette Smoke Ribbon
+    ctx.strokeStyle = 'rgba(212, 212, 216, 0.25)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.5, h * 0.9);
+    for (let sm = 0; sm < 8; sm++) {
+      const smY = h * 0.9 - sm * 45;
+      const smX = w * 0.5 + Math.sin(t * 2 + sm * 0.8) * (20 + sm * 10);
+      ctx.lineTo(smX, smY);
+    }
+    ctx.stroke();
+  } else {
+    // Standard Cyberpunk / High-Tech Neon Skyline
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+    if (characterType === 'ghoul') {
+      skyGrad.addColorStop(0, '#0c0714');
+      skyGrad.addColorStop(0.5, '#050209');
+      skyGrad.addColorStop(1, '#020104');
+    } else if (characterType === 'female') {
+      skyGrad.addColorStop(0, '#071626');
+      skyGrad.addColorStop(0.5, '#030b14');
+      skyGrad.addColorStop(1, '#010408');
+    } else {
+      skyGrad.addColorStop(0, '#090d16');
+      skyGrad.addColorStop(0.5, '#03060d');
+      skyGrad.addColorStop(1, '#010206');
+    }
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // City Buildings with illuminated neon signs
+    const buildingCount = 10;
+    const baseY = h * 0.75;
+    ctx.fillStyle = 'rgba(2, 6, 14, 0.9)';
+    for (let b = 0; b < buildingCount; b++) {
+      const bw = w / (buildingCount * 0.9);
+      const bx = b * (bw * 0.95);
+      const bh = ((Math.sin(b * 3.7) * 0.5 + 0.5) * 0.35 + 0.15) * h;
+      ctx.fillRect(bx, baseY - bh, bw, bh + h * 0.3);
+
+      // Neon billboard glow
+      if (b % 3 === 1) {
+        ctx.fillStyle = b % 2 === 0 ? 'rgba(236, 72, 153, 0.5)' : 'rgba(56, 189, 248, 0.5)';
+        ctx.fillRect(bx + 10, baseY - bh + 15, bw - 20, 18);
       }
     }
+
+    // Rain Streaks
+    const rainCount = 40;
+    ctx.strokeStyle = 'rgba(186, 230, 253, 0.3)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < rainCount; i++) {
+      const rx = (i * 47 + t * 450) % w;
+      const ry = (i * 91 + t * 750) % h;
+      ctx.moveTo(rx, ry);
+      ctx.lineTo(rx - 8, ry + 24);
+    }
+    ctx.stroke();
+
+    // Ground fog
+    const fogY = h * 0.72;
+    const fogGrad = ctx.createLinearGradient(0, fogY, 0, h);
+    fogGrad.addColorStop(0, 'transparent');
+    fogGrad.addColorStop(1, 'rgba(2, 6, 23, 0.85)');
+    ctx.fillStyle = fogGrad;
+    ctx.fillRect(0, fogY, w, h - fogY);
   }
-
-  // Sweeping Searchlight
-  const beamAngle = Math.sin(t * 1.5) * 0.4;
-  const beamX = w * 0.75;
-  ctx.save();
-  ctx.translate(beamX, baseY);
-  ctx.rotate(beamAngle - 0.4);
-  const beamGrad = ctx.createLinearGradient(0, 0, 0, -h * 0.85);
-  beamGrad.addColorStop(0, 'rgba(56, 189, 248, 0.25)');
-  beamGrad.addColorStop(1, 'transparent');
-  ctx.fillStyle = beamGrad;
-  ctx.beginPath();
-  ctx.moveTo(-15, 0);
-  ctx.lineTo(-80, -h * 0.85);
-  ctx.lineTo(80, -h * 0.85);
-  ctx.lineTo(15, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-
-  // Dynamic Rain Streaks with parallax
-  const rainCount = 45;
-  ctx.strokeStyle = 'rgba(186, 230, 253, 0.35)';
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  for (let i = 0; i < rainCount; i++) {
-    const rx = ((i * 47 + t * 450) % w);
-    const ry = (((i * 91 + t * 750) % h));
-    ctx.moveTo(rx, ry);
-    ctx.lineTo(rx - 8, ry + 24);
-  }
-  ctx.stroke();
-
-  // Volumetric rolling ground fog
-  const fogY = h * 0.72;
-  const fogGrad = ctx.createLinearGradient(0, fogY, 0, h);
-  fogGrad.addColorStop(0, 'transparent');
-  fogGrad.addColorStop(0.5, 'rgba(15, 23, 42, 0.55)');
-  fogGrad.addColorStop(1, 'rgba(2, 6, 23, 0.9)');
-  ctx.fillStyle = fogGrad;
-  ctx.fillRect(0, fogY, w, h - fogY);
 
   ctx.restore();
 }
